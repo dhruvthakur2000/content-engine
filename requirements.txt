@@ -2,9 +2,13 @@ fastapi
 uvicorn
 langgraph
 langchain
+langchain-huggingface
+huggingface_hub
 langchain-community
-gitpython
+GitPython
 pydantic
 python-dotenv
 streamlit
 rich
+structlog
+

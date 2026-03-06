@@ -1,0 +1,72 @@
+[tool.poetry]
+name = "devlogai"
+version = "0.1.0"
+description = "Developer activity → automated technical content generation"
+authors = ["Dhruv Thakur"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"  # Minimum Python 3.11 — uses TypedDict syntax, match statements
+
+# Web framework — serves the API endpoints
+fastapi = "^0.111.0"
+
+# ASGI server — runs FastAPI (like gunicorn but async-native)
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
+# extras = ["standard"] adds: websocket support, faster event loop (uvloop), etc.
+
+# LangGraph — the pipeline orchestration framework
+langgraph = "^0.1.0"
+
+# LangChain — provides LLM utilities, message types, etc.
+langchain = "^0.2.0"
+langchain-community = "^0.2.0"
+
+# OpenAI SDK — used for BOTH OpenAI and Qwen (OpenAI-compatible API)
+# Also used for Groq, Together.ai if you add them later
+openai = "^1.30.0"
+
+# HTTP client — used in tests and utilities
+httpx = "^0.27.0"
+
+# UI framework
+streamlit = "^1.35.0"
+
+# Git integration — for reading repos directly
+gitpython = "^3.1.43"
+
+# Data validation — FastAPI uses this for request/response models
+pydantic = "^2.7.0"
+
+# For reading pydantic settings from .env files
+pydantic-settings = "^2.3.0"
+
+# Multipart form handling — for file upload endpoint
+python-multipart = "^0.0.9"
+
+# .env file reader
+python-dotenv = "^1.0.1"
+
+# Async SQLite driver — wraps SQLite in async I/O
+aiosqlite = "^0.20.0"
+
+# ORM (Object-Relational Mapper) with async support
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.30"}
+# extras = ["asyncio"] adds the async engine and session classes
+
+# Pretty terminal output — useful for debug logging
+rich = "^13.7.1"
+
+[tool.poetry.group.dev.dependencies]
+# Test framework
+pytest = "^8.2.0"
+
+# Async test support — needed for testing async functions
+pytest-asyncio = "^0.23.0"
+
+# HTTP client in tests — for calling FastAPI test client
+httpx = "^0.27.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
