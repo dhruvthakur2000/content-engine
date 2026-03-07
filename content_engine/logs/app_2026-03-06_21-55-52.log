@@ -1,0 +1,2 @@
+{"extra_field": "extra_value", "event": "Logger info test", "level": "info", "timestamp": "2026-03-06T16:25:52.603966Z"}
+{"event": "Logger error test", "level": "error", "timestamp": "2026-03-06T16:25:52.604472Z"}
