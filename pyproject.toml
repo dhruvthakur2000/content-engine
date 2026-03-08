@@ -13,13 +13,16 @@ uvicorn = "*"
 langgraph = "*"
 openai = "*"
 pydantic = "*"
+pydantic-settings = "*"
 python-dotenv = "*"
 structlog = "*"
 streamlit = "*"
+httpx = "*"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"
 ruff = "*"
+GitPython = "*"
 
 [build-system]
 requires = ["poetry-core"]

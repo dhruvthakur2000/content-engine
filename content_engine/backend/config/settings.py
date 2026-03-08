@@ -23,25 +23,37 @@ class Settings(BaseSettings):
         extra="ignore",           # Silently ignore unknown env vars
     )
 
-    # ── OpenRouter / LLM Settings ─────────────────────────────
-    # OpenRouter is an API gateway that routes to many LLMs.
-    # We use it like the OpenAI SDK — just swap the base_url.
-    openrouter_api_key: str = Field(
+    # ── LLM Settings ─────────────────────────────────────────────
+    # HuggingFace Inference API for hosting open models.
+    # Get your free token at: https://huggingface.co/settings/tokens
+    hf_api_key: str = Field(
         default="",
-        description="API key from https://openrouter.ai/keys"
+        description="HuggingFace API token"
     )
 
-    # Which model to use — can be any model supported by OpenRouter.
-    # Default: a capable, cheap open-source model.
+    # Which model to use on HuggingFace Inference API.
+    # Recommended: meta-llama/Meta-Llama-3-8B-Instruct
     llm_model: str = Field(
-        default="meta-llama/llama-3.1-8b-instruct:free",
-        description="OpenRouter model identifier"
+        default="meta-llama/Meta-Llama-3-8B-Instruct",
+        description="HuggingFace model identifier"
     )
 
-    # Base URL for the OpenRouter API — uses OpenAI-compatible endpoint.
-    openrouter_base_url: str = Field(
-        default="https://openrouter.ai/api/v1",
-        description="OpenRouter API base URL"
+    # LLM provider choice (currently only huggingface supported)
+    llm_provider: str = Field(
+        default="huggingface",
+        description="LLM provider: huggingface"
+    )
+
+    # Temperature for LLM generation (0.0-1.0)
+    llm_temperature: float = Field(
+        default=0.7,
+        description="LLM temperature"
+    )
+
+    # Max tokens for LLM generation
+    llm_max_tokens: int = Field(
+        default=2000,
+        description="Max tokens to generate"
     )
 
     # ── Application Settings ──────────────────────────────────

@@ -1,6 +1,51 @@
-venv
-__pycache__
+# ============================================================
+# .gitignore
+# Files and directories that should NEVER be committed to git.
+# ============================================================
+
+# ── Secrets ───────────────────────────────────────────────────
+# CRITICAL: Never commit .env — it contains your API keys
 .env
-*.pyc
-outputs/
-sqlite.db
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ── Virtual environments ──────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── uv lockfile artifacts ─────────────────────────────────────
+# uv.lock is safe to commit, but listed here for reference
+# Uncomment next line if you DON'T want to track the lockfile
+# uv.lock
+
+# ── IDE files ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────
+logs/*.log
+logs/
+
+# ── Test artifacts ────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# ── Streamlit cache ───────────────────────────────────────────
+.streamlit/
