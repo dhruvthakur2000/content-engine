@@ -1,6 +1,12 @@
-from typing import TypedDict
+from typing import TypedDict, Optional, Any
 
-class PipelineState(TypedDict):
+class PipelineState(TypedDict, total= False):
+    """
+    Shared state object passed through all langraph nodes
+    """
+    #--Input fields ------------
+    
+    
 
     commits: list[str]
     dump_text: str

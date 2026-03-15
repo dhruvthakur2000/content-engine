@@ -1,4 +1,4 @@
-from content_engine.pipeline.graph import build_graph
+from content_engine.pipeline.graph import build_pipeline
 from content_engine.pipeline.state import PipelineState
 
 class ContentService:
@@ -7,9 +7,9 @@ class ContentService:
     """
 
     def __init__(self):
-        self.graph = build_graph()
+        self.graph_pipeline = build_pipeline()
 
-    async def generate_content(self, notes: str, git_log: str | None, platform: str)
+    async def generate_content(self, notes: str, git_log: str | None, platform: str):
         
         state= PipelineState(
             raw_notes = notes,
@@ -17,6 +17,6 @@ class ContentService:
             platform=platform
         )
 
-        result =  await self.graph.ainvoke(state)
+        result =  await self.graph_pipeline.ainvoke(state)
 
         return result["generated_text"]

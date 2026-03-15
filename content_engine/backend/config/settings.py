@@ -1,120 +1,215 @@
-from functools import lru_cache          # Caches the settings object after first call
-from pydantic_settings import BaseSettings, SettingsConfigDict  # Core config engine
-from pydantic import Field               # Adds default values and descriptions
+from functools import lru_cache
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
-    """
-    Application settings loaded from environment variables / .env file.
 
-    Pydantic-Settings automatically:
-      - Reads each attribute from the matching ENV VAR (case-insensitive)
-      - Falls back to the default value if the env var is missing
-      - Raises a ValidationError if a required var is missing
-    """
-
-    # ── model_config ─────────────────────────────────────────
-    # Tells Pydantic-Settings WHERE to find the .env file and
-    # whether env var names are case-sensitive.
     model_config = SettingsConfigDict(
-        env_file=".env",          # Load from .env at project root
+        env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False,     # OPENROUTER_API_KEY == openrouter_api_key
-        extra="ignore",           # Silently ignore unknown env vars
+        case_sensitive=False,
+        extra="ignore",
     )
 
-    # ── LLM Settings ─────────────────────────────────────────────
-    # HuggingFace Inference API for hosting open models.
-    # Get your free token at: https://huggingface.co/settings/tokens
+    # ============================================================
+    # HuggingFace Router Settings
+    # ============================================================
+
     hf_api_key: str = Field(
         default="",
         description="HuggingFace API token"
     )
 
-    # Which model to use on HuggingFace Inference API.
-    # Recommended: meta-llama/Meta-Llama-3-8B-Instruct
-    llm_model: str = Field(
+    hf_base_url: str = Field(
+        default="https://router.huggingface.co/v1",
+        description="HuggingFace inference router base URL"
+    )
+
+    # ============================================================
+    # MODEL ROUTING (Task-specific models)
+    # ============================================================
+
+    parse_model: str = Field(
+        default="Qwen/Qwen2.5-7B-Instruct",
+        description="Model used for parsing tasks"
+    )
+
+    reason_model: str = Field(
+        default="Qwen/Qwen2.5-14B-Instruct",
+        description="Model used for reasoning tasks"
+    )
+
+    generation_model: str = Field(
+        default="Qwen/Qwen2.5-72B-Instruct",
+        description="Model used for LinkedIn/Twitter generation"
+    )
+
+    blog_model: str = Field(
+        default="Qwen/Qwen2.5-72B-Instruct",
+        description="Model used for blog generation"
+    )
+
+    # ============================================================
+    # FALLBACK MODELS
+    # ============================================================
+
+    fallback_model_1: str = Field(
         default="meta-llama/Meta-Llama-3-8B-Instruct",
-        description="HuggingFace model identifier"
+        description="First fallback model"
     )
 
-    # LLM provider choice (currently only huggingface supported)
-    llm_provider: str = Field(
-        default="huggingface",
-        description="LLM provider: huggingface"
+    fallback_model_2: str = Field(
+        default="mistralai/Mistral-7B-Instruct-v0.3",
+        description="Second fallback model"
     )
 
-    # Temperature for LLM generation (0.0-1.0)
+    # ============================================================
+    # LLM GENERATION PARAMETERS
+    # ============================================================
+
     llm_temperature: float = Field(
         default=0.7,
-        description="LLM temperature"
+        ge=0.0,
+        le=2.0
     )
 
-    # Max tokens for LLM generation
     llm_max_tokens: int = Field(
-        default=2000,
-        description="Max tokens to generate"
+        default=2500,
+        ge=256,
+        le=8192
     )
 
-    # ── Application Settings ──────────────────────────────────
+    llm_request_timeout: int = Field(
+        default=120,
+        ge=30,
+        le=300
+    )
+
+    llm_max_retries: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum retry attempts for LLM calls"
+    )
+
+    # ============================================================
+    # CACHE SETTINGS (LangGraph Node Cache)
+    # ============================================================
+
+    prompt_version: str ="v1"
+    
+    
+    cache_enabled: bool = Field(
+        default=True,
+        description="Enable node-level caching"
+    )
+
+    cache_dir: str = Field(
+        default="cache",
+        description="Directory where cache files are stored"
+    )
+
+    cache_ttl_hours: int = Field(
+        default=72,
+        description="Cache expiration time"
+    )
+
+    # ============================================================
+    # CONTENT MEMORY SETTINGS (Semantic memory)
+    # ============================================================
+
+    enable_memory: bool = Field(
+        default=False,
+        description="Enable semantic memory layer"
+    )
+
+    memory_collection: str = Field(
+        default="content_engine_memory"
+    )
+
+    memory_top_k: int = Field(
+        default=3,
+        description="How many similar past results to retrieve"
+    )
+
+    # ============================================================
+    # APPLICATION SETTINGS
+    # ============================================================
+
     app_env: str = Field(
-        default="development",
-        description="Environment: development | production"
+        default="development"
     )
 
-    # Port the FastAPI server listens on.
     api_port: int = Field(
-        default=8000,
-        description="FastAPI server port"
+        default=8000
     )
 
-    # Port the Streamlit frontend listens on.
     streamlit_port: int = Field(
-        default=8501,
-        description="Streamlit frontend port"
+        default=8501
     )
 
-    # ── Logging Settings ──────────────────────────────────────
+    max_pipeline_workers: int = Field(
+        default=4
+    )
+
+    # ============================================================
+    # PLATFORM DEFAULTS
+    # ============================================================
+
+    default_platforms: str = Field(
+        default="linkedin,twitter"
+    )
+
+    allowed_origins: str = Field(
+        default="*"
+    )
+
+    # ============================================================
+    # LOGGING
+    # ============================================================
+
     log_level: str = Field(
-        default="INFO",
-        description="Logging level: DEBUG | INFO | WARNING | ERROR"
+        default="INFO"
     )
 
     log_dir: str = Field(
-        default="logs",
-        description="Directory where log files are written"
+        default="logs"
     )
 
-    # ── App Identity ──────────────────────────────────────────
+    # ============================================================
+    # APP METADATA
+    # ============================================================
+
     app_name: str = Field(
-        default="AI Content Engine",
-        description="Human-readable application name"
+        default="AI Content Engine"
     )
 
     app_version: str = Field(
-        default="0.1.0",
-        description="Application version string"
+        default="0.1.0"
     )
+
+    # ============================================================
+    # COMPUTED PROPERTIES
+    # ============================================================
 
     @property
     def is_production(self) -> bool:
-        """Convenience property: True when running in production mode."""
         return self.app_env.lower() == "production"
 
     @property
+    def hf_token_configured(self) -> bool:
+        return bool(self.hf_api_key and self.hf_api_key.strip())
+
+    @property
     def api_base_url(self) -> str:
-        """Full URL of the FastAPI server — used by Streamlit to call the API."""
         return f"http://localhost:{self.api_port}"
 
+    @property
+    def allowed_origins_list(self):
+        return [o.strip() for o in self.allowed_origins.split(",")]
 
-@lru_cache()  # <- This decorator ensures we only parse .env ONCE per process
+
+@lru_cache()
 def get_settings() -> Settings:
-    """
-    Returns the singleton Settings instance.
-
-    Usage anywhere in the codebase:
-        from backend.config.settings import get_settings
-        settings = get_settings()
-        print(settings.llm_model)
-    """
     return Settings()
