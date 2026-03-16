@@ -12,23 +12,23 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ============================================================
-    # HuggingFace Router Settings
-    # ============================================================
+    # =========================================================
+    # LLM PROVIDER
+    # =========================================================
 
-    hf_api_key: str = Field(
+    hf_token: str = Field(
         default="",
         description="HuggingFace API token"
     )
 
     hf_base_url: str = Field(
         default="https://router.huggingface.co/v1",
-        description="HuggingFace inference router base URL"
+        description="HF OpenAI-compatible router"
     )
 
-    # ============================================================
-    # MODEL ROUTING (Task-specific models)
-    # ============================================================
+    # =========================================================
+    # TASK BASED MODEL ROUTING
+    # =========================================================
 
     parse_model: str = Field(
         default="Qwen/Qwen2.5-7B-Instruct",
@@ -37,12 +37,12 @@ class Settings(BaseSettings):
 
     reason_model: str = Field(
         default="Qwen/Qwen2.5-14B-Instruct",
-        description="Model used for reasoning tasks"
+        description="Model used for reasoning"
     )
 
     generation_model: str = Field(
         default="Qwen/Qwen2.5-72B-Instruct",
-        description="Model used for LinkedIn/Twitter generation"
+        description="Primary generation model"
     )
 
     blog_model: str = Field(
@@ -50,23 +50,30 @@ class Settings(BaseSettings):
         description="Model used for blog generation"
     )
 
-    # ============================================================
+    # =========================================================
     # FALLBACK MODELS
-    # ============================================================
+    # =========================================================
 
     fallback_model_1: str = Field(
-        default="meta-llama/Meta-Llama-3-8B-Instruct",
+        default="Qwen/Qwen2.5-32B-Instruct",
         description="First fallback model"
     )
 
     fallback_model_2: str = Field(
-        default="mistralai/Mistral-7B-Instruct-v0.3",
+        default="Qwen/Qwen2.5-14B-Instruct",
         description="Second fallback model"
     )
 
-    # ============================================================
-    # LLM GENERATION PARAMETERS
-    # ============================================================
+    llm_max_retries: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Max retry attempts per model"
+    )
+
+    # =========================================================
+    # GENERATION PARAMETERS
+    # =========================================================
 
     llm_temperature: float = Field(
         default=0.7,
@@ -86,56 +93,62 @@ class Settings(BaseSettings):
         le=300
     )
 
-    llm_max_retries: int = Field(
-        default=3,
-        ge=1,
-        le=10,
-        description="Maximum retry attempts for LLM calls"
+    # =========================================================
+    # PROMPT VERSIONING
+    # Used by cache manager to invalidate cache when prompts change
+    # =========================================================
+
+    prompt_version: str = Field(
+        default="v1",
+        description="Used for cache invalidation when prompts change"
     )
 
-    # ============================================================
-    # CACHE SETTINGS (LangGraph Node Cache)
-    # ============================================================
+    # =========================================================
+    # CACHE LAYER
+    # =========================================================
 
-    prompt_version: str ="v1"
-    
-    
     cache_enabled: bool = Field(
-        default=True,
-        description="Enable node-level caching"
+        default=True
     )
 
     cache_dir: str = Field(
-        default="cache",
-        description="Directory where cache files are stored"
+        default="cache"
     )
 
-    cache_ttl_hours: int = Field(
-        default=72,
-        description="Cache expiration time"
+    cache_ttl_hours: float = Field(
+        default=24.0
     )
 
-    # ============================================================
-    # CONTENT MEMORY SETTINGS (Semantic memory)
-    # ============================================================
+    # =========================================================
+    # SEMANTIC MEMORY
+    # =========================================================
 
-    enable_memory: bool = Field(
-        default=False,
-        description="Enable semantic memory layer"
+    memory_enabled: bool = Field(
+        default=False
     )
 
-    memory_collection: str = Field(
-        default="content_engine_memory"
+    memory_dir: str = Field(
+        default="memory"
     )
 
-    memory_top_k: int = Field(
-        default=3,
-        description="How many similar past results to retrieve"
+    memory_similarity_threshold: float = Field(
+        default=0.82,
+        ge=0.0,
+        le=1.0
     )
 
-    # ============================================================
+    # =========================================================
+    # PIPELINE EXECUTION
+    # =========================================================
+
+    max_pipeline_workers: int = Field(
+        default=4,
+        description="Concurrent pipeline executions"
+    )
+
+    # =========================================================
     # APPLICATION SETTINGS
-    # ============================================================
+    # =========================================================
 
     app_env: str = Field(
         default="development"
@@ -149,25 +162,17 @@ class Settings(BaseSettings):
         default=8501
     )
 
-    max_pipeline_workers: int = Field(
-        default=4
+    allowed_origins: str = Field(
+        default="*"
     )
-
-    # ============================================================
-    # PLATFORM DEFAULTS
-    # ============================================================
 
     default_platforms: str = Field(
         default="linkedin,twitter"
     )
 
-    allowed_origins: str = Field(
-        default="*"
-    )
-
-    # ============================================================
+    # =========================================================
     # LOGGING
-    # ============================================================
+    # =========================================================
 
     log_level: str = Field(
         default="INFO"
@@ -177,21 +182,21 @@ class Settings(BaseSettings):
         default="logs"
     )
 
-    # ============================================================
+    # =========================================================
     # APP METADATA
-    # ============================================================
+    # =========================================================
 
     app_name: str = Field(
         default="AI Content Engine"
     )
 
     app_version: str = Field(
-        default="0.1.0"
+        default="2.0.0"
     )
 
-    # ============================================================
+    # =========================================================
     # COMPUTED PROPERTIES
-    # ============================================================
+    # =========================================================
 
     @property
     def is_production(self) -> bool:
@@ -199,7 +204,7 @@ class Settings(BaseSettings):
 
     @property
     def hf_token_configured(self) -> bool:
-        return bool(self.hf_api_key and self.hf_api_key.strip())
+        return bool(self.hf_token and self.hf_token.strip())
 
     @property
     def api_base_url(self) -> str:
@@ -207,9 +212,21 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self):
-        return [o.strip() for o in self.allowed_origins.split(",")]
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
+    @property
+    def default_platforms_list(self):
+        return [p.strip() for p in self.default_platforms.split(",") if p.strip()]
+
+
+# ============================================================
+# SETTINGS SINGLETON
+# ============================================================
 
 @lru_cache()
 def get_settings() -> Settings:
+    """
+    Singleton settings loader.
+    Parses .env exactly once.
+    """
     return Settings()

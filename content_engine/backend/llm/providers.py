@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Type 
 import time
+import threading
 from langchain_openai import  ChatOpenAI
 from content_engine.backend.config.settings import get_settings
 from content_engine.backend.utils.logger import get_logger
@@ -139,16 +140,20 @@ class ProviderManager:
 # ============================================================
 
 _provider_manager: ProviderManager | None = None
+_provider_lock = threading.Lock()
 
 
 def get_llm() -> ProviderManager:
     """
     Global entry point used by the pipeline.
+    Thread-safe singleton initialization.
     """
 
     global _provider_manager
 
     if _provider_manager is None:
-        _provider_manager = ProviderManager()
+        with _provider_lock:
+            if _provider_manager is None:
+                _provider_manager = ProviderManager()
 
     return _provider_manager

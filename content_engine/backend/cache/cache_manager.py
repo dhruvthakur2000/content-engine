@@ -1,6 +1,8 @@
 import hashlib
 import json
 import os
+import tempfile
+import threading
 import time
 from typing import Optional, Dict
 
@@ -111,14 +113,32 @@ class CacheManager:
         cache_path = self._get_cache_path(cache_key)
 
         try:
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(result, f, ensure_ascii=False, indent=2)
-
-            logger.info(
-                "cache_written",
-                node=node_name,
-                path=cache_path,
+            # Write to temporary file first (atomic write pattern)
+            fd, tmp_path = tempfile.mkstemp(
+                dir=self.cache_dir,
+                prefix=".tmp_",
+                suffix=".json"
             )
+            
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(result, f, ensure_ascii=False, indent=2)
+                
+                # Atomically replace the target file
+                os.replace(tmp_path, cache_path)
+                
+                logger.info(
+                    "cache_written",
+                    node=node_name,
+                    path=cache_path,
+                )
+            except Exception:
+                # Clean up temp file if something went wrong
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
 
         except Exception as e:
             logger.warning("cache_write_error", node=node_name, error=str(e))
@@ -180,6 +200,9 @@ class CacheManager:
             except OSError:
                 pass
 
+        if not ages:
+            return {"enabled": self.settings.cache_enabled, "file_count": len(files)}
+
         return {
             "enabled": self.settings.cache_enabled,
             "file_count": len(files),
@@ -195,12 +218,15 @@ class CacheManager:
 # -------------------------------------------------------------
 
 _cache_manager: Optional[CacheManager] = None
+_cache_lock = threading.Lock()
 
 
 def get_cache() -> CacheManager:
     global _cache_manager
 
     if _cache_manager is None:
-        _cache_manager = CacheManager()
+        with _cache_lock:
+            if _cache_manager is None:
+                _cache_manager = CacheManager()
 
     return _cache_manager

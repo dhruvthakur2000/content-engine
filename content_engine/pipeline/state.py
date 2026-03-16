@@ -1,21 +1,97 @@
-from typing import TypedDict, Optional, Any
+import threading
 
-class PipelineState(TypedDict, total= False):
-    """
-    Shared state object passed through all langraph nodes
-    """
-    #--Input fields ------------
-    
-    
+from langgraph.graph import StateGraph, END
 
-    commits: list[str]
-    dump_text: str
+from pipeline.state import PipelineState
 
-    context_summary: str
-    technical_summary: str
-    persona: str
+from pipeline.nodes.parse_notes import parse_notes_node
+from pipeline.nodes.parse_git import parse_git_node
+from pipeline.nodes.context_builder import context_builder_node
+from pipeline.nodes.angle import angle_node
+from pipeline.nodes.style_selector import style_selector_node
+from pipeline.nodes.blog_blueprint import blog_blueprint_node
+from pipeline.nodes.post_generator import post_generator_node
 
-    x_post: str
-    linkedin_post: str
-    thread: str
-    blog: str
+from backend.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+_pipeline_instance = None
+_pipeline_lock = threading.Lock()
+
+
+# ------------------------------------------------------------
+# BUILD GRAPH
+# ------------------------------------------------------------
+
+def build_pipeline():
+
+    graph = StateGraph(PipelineState)
+
+    # --------------------------------------------------------
+    # REGISTER NODES
+    # --------------------------------------------------------
+
+    nodes = {
+        "parse_notes": parse_notes_node,
+        "parse_git": parse_git_node,
+        "context_builder": context_builder_node,
+        "angle_generator": angle_node,
+        "style_selector": style_selector_node,
+        "blog_blueprint": blog_blueprint_node,
+        "post_generator": post_generator_node,
+    }
+
+    for name, node in nodes.items():
+        graph.add_node(name, node)
+
+    # --------------------------------------------------------
+    # ENTRY POINT
+    # --------------------------------------------------------
+
+    graph.set_entry_point("parse_notes")
+
+    # --------------------------------------------------------
+    # PARALLEL START
+    # --------------------------------------------------------
+
+    graph.add_edge("parse_notes", "context_builder")
+    graph.add_edge("parse_notes", "parse_git")
+
+    graph.add_edge("parse_git", "context_builder")
+
+    # --------------------------------------------------------
+    # MAIN PIPELINE
+    # --------------------------------------------------------
+
+    graph.add_edge("context_builder", "angle_generator")
+    graph.add_edge("angle_generator", "style_selector")
+    graph.add_edge("style_selector", "blog_blueprint")
+    graph.add_edge("blog_blueprint", "post_generator")
+    graph.add_edge("post_generator", END)
+
+    compiled = graph.compile()
+
+    logger.info(
+        "pipeline_compiled_parallel",
+        node_count=len(nodes),
+        nodes=list(nodes.keys()),
+    )
+
+    return compiled
+
+
+# ------------------------------------------------------------
+# SINGLETON ACCESS
+# ------------------------------------------------------------
+
+def get_pipeline():
+
+    global _pipeline_instance
+
+    if _pipeline_instance is None:
+        with _pipeline_lock:
+            if _pipeline_instance is None:
+                _pipeline_instance = build_pipeline()
+
+    return _pipeline_instance

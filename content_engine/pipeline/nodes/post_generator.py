@@ -1,9 +1,4 @@
-# ============================================================
-# pipeline/nodes/post_generator.py
-# ============================================================
-
 from typing import Dict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langchain_core.messages import HumanMessage
 
@@ -18,60 +13,125 @@ from backend.llm.prompts import (
     STYLE_INJECTION,
     BLOG_POST_PROMPT,
 )
-
 from backend.config.settings import get_settings
+from backend.utils.logger import get_logger
 
+logger = get_logger(__name__)
 
-# Initialize LLM once
+NODE_NAME = "post_generator"
+
 llm = get_llm()
 
-
-# Platform psychology mapping
 PLATFORM_PSYCHOLOGY = {
     "linkedin": LINKEDIN_PSYCHOLOGY,
     "twitter": TWITTER_PSYCHOLOGY,
 }
 
 
-def generate_for_platform(
-    platform: str,
-    context: str,
-    narrative_angle: str,
-    hook: str,
-    key_detail: str,
-    style_injection: str,
-    blog_blueprint: str,
-    style_guide: str,
-) -> tuple[str, str]:
+@pipeline_node(NODE_NAME)
+def post_generator_node(state: PipelineState) -> PipelineState:
     """
-    Generates a post for a single platform.
-    This function is executed in parallel threads.
+    Final pipeline node: generates platform-specific posts.
+
+    Reads:
+        context
+        narrative_angle
+        hook
+        key_detail
+        style_guide
+        blog_blueprint
+        memory_context
+        platforms
+
+    Writes:
+        generated_posts
+        metadata
     """
 
-    platform_lower = platform.lower()
+    context = state.get("context", "")
+    narrative_angle = state.get("narrative_angle", "ENGINEERING_UPDATE")
+    hook = state.get("hook", "Here's what I built today.")
+    key_detail = state.get("key_detail", "")
+    style_guide = state.get("style_guide", "")
+    blog_blueprint = state.get("blog_blueprint", "")
+    memory_context = state.get("memory_context", "")
+    platforms = state.get("platforms", ["linkedin", "twitter"])
 
-    try:
+    if not context or len(context.strip()) < 30:
+        return {
+            "generated_posts": {p: "[No content — insufficient input]" for p in platforms},
+            "metadata": {"error": "empty_context"},
+        }
 
-        # BLOG GENERATION (Stage 2)
-        if platform_lower == "blog":
+    # -----------------------------------------------------
+    # STYLE INJECTION
+    # -----------------------------------------------------
 
-            effective_blueprint = blog_blueprint or (
-                f"Write a technical blog post about: {context[:500]}"
-            )
+    style_injection = (
+        STYLE_INJECTION.format(style_guide=style_guide)
+        if style_guide
+        else "Style: Direct, technical, human. Short sentences. Specific over vague."
+    )
 
-            prompt = BLOG_POST_PROMPT.format(
-                blueprint=effective_blueprint,
-                context=context,
-                style_guide=style_guide or "Write in authentic developer voice.",
-            )
+    # -----------------------------------------------------
+    # MEMORY CONTEXT
+    # -----------------------------------------------------
 
-        # LINKEDIN / TWITTER
-        else:
+    memory_block = ""
+    if memory_context and memory_context.strip():
+        memory_block = f"\n\n{memory_context}\n"
 
+    generated_posts: Dict[str, str] = {}
+
+    # -----------------------------------------------------
+    # PLATFORM LOOP
+    # -----------------------------------------------------
+
+    for platform in platforms:
+
+        platform_lower = platform.lower()
+
+        try:
+
+            # BLOG GENERATION
+            if platform_lower == "blog":
+
+                effective_blueprint = (
+                    blog_blueprint
+                    or f"Write a technical blog post about: {context[:500]}"
+                )
+
+                prompt = BLOG_POST_PROMPT.format(
+                    blueprint=effective_blueprint,
+                    context=context,
+                    style_guide=style_guide or "Write in authentic developer voice.",
+                )
+
+                prompt += memory_block
+
+                response = llm.invoke(
+                    [HumanMessage(content=prompt)],
+                    task="blog",
+                )
+
+                if response and hasattr(response, 'content'):
+                    generated_posts[platform] = response.content.strip()
+                else:
+                    raise ValueError("Empty response from LLM")
+
+                logger.info(
+                    "platform_generated",
+                    platform=platform,
+                    output_chars=len(generated_posts[platform]),
+                )
+                continue
+
+            # LINKEDIN / TWITTER GENERATION
             prompt_template = PLATFORM_PROMPTS.get(platform_lower)
 
             if prompt_template is None:
-                return platform, f"[Unknown platform: {platform}]"
+                generated_posts[platform] = f"[Unknown platform: {platform}]"
+                continue
 
             psychology = PLATFORM_PSYCHOLOGY.get(platform_lower, "")
 
@@ -85,90 +145,48 @@ def generate_for_platform(
                 key_detail=key_detail,
             )
 
-        response = llm.invoke([HumanMessage(content=prompt)])
+            prompt += memory_block
 
-        return platform, response.content.strip()
-
-    except Exception as e:
-
-        return platform, f"[Generation failed for {platform}: {str(e)}]"
-
-
-@pipeline_node("post_generator")
-def post_generator_node(state: PipelineState) -> PipelineState:
-    """
-    Final LangGraph node that generates platform-specific posts.
-    Supports parallel generation across platforms.
-    """
-
-    context = state.get("context", "")
-    narrative_angle = state.get("narrative_angle", "ENGINEERING_UPDATE")
-    hook = state.get("hook", "Here's what I built today.")
-    key_detail = state.get("key_detail", "")
-    style_guide = state.get("style_guide", "")
-    blog_blueprint = state.get("blog_blueprint", "")
-    extra_material = state.get("extra_material", "")
-    platforms = state.get("platforms", ["linkedin", "twitter"])
-
-    if not context or len(context.strip()) < 30:
-        return {
-            "generated_posts": {p: "[No content — insufficient input]" for p in platforms},
-            "metadata": {"error": "empty_context"},
-        }
-
-    # Inject style guide
-    if style_guide:
-        style_injection = STYLE_INJECTION.format(style_guide=style_guide)
-    else:
-        style_injection = (
-            "Style: Direct, technical, human. Short sentences. Specific over vague."
-        )
-
-    generated_posts: Dict[str, str] = {}
-
-    # Parallel platform generation
-    with ThreadPoolExecutor(max_workers=len(platforms)) as executor:
-
-        futures = [
-            executor.submit(
-                generate_for_platform,
-                platform,
-                context,
-                narrative_angle,
-                hook,
-                key_detail,
-                style_injection,
-                blog_blueprint,
-                style_guide,
+            response = llm.invoke(
+                [HumanMessage(content=prompt)],
+                task="generation",
             )
-            for platform in platforms
-        ]
 
-        for future in as_completed(futures):
+            if response and hasattr(response, 'content'):
+                generated_posts[platform] = response.content.strip()
+            else:
+                raise ValueError("Empty response from LLM")
 
-            platform, result = future.result()
+            logger.info(
+                "platform_generated",
+                platform=platform,
+                output_chars=len(generated_posts[platform]),
+            )
 
-            generated_posts[platform] = result
+        except Exception as e:
 
-    # Metadata
+            logger.error(
+                "platform_generation_error",
+                platform=platform,
+                error=str(e),
+            )
+
+            generated_posts[platform] = f"[Generation failed for {platform}: {str(e)}]"
+
+    # -----------------------------------------------------
+    # METADATA
+    # -----------------------------------------------------
+
     settings = get_settings()
 
     metadata = {
-        "model": settings.llm_model,
+        "model": settings.generation_model,
         "platforms_generated": list(generated_posts.keys()),
         "narrative_angle": narrative_angle,
         "style_used": state.get("style", "dhruv_default"),
         "two_stage_blog": bool(blog_blueprint),
-        "nodes_executed": [
-            "parse_notes",
-            "parse_git",
-            "context_builder",
-            "angle_generator",
-            "style_selector",
-            "blog_blueprint",
-            "post_generator",
-        ],
-    }  
+        "memory_context_used": bool(memory_context),
+    }
 
     return {
         "generated_posts": generated_posts,
