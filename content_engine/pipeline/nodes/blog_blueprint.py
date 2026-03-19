@@ -4,10 +4,10 @@
 
 from langchain_core.messages import HumanMessage
 
-from pipeline.state import PipelineState
-from backend.llm.providers import get_llm
-from backend.llm.prompts import BLOG_BLUEPRINT_PROMPT
-from pipeline.utils.node_wrapper import pipeline_node
+from content_engine.pipeline.state import PipelineState
+from content_engine.backend.llm.providers import get_llm
+from content_engine.backend.llm.prompts import BLOG_BLUEPRINT_PROMPT
+from content_engine.pipeline.utils.node_wrapper import pipeline_node
 
 
 llm = get_llm()

@@ -2,19 +2,19 @@ from typing import Dict
 
 from langchain_core.messages import HumanMessage
 
-from pipeline.state import PipelineState
-from pipeline.utils.node_wrapper import pipeline_node
+from content_engine.pipeline.state import PipelineState
+from content_engine.pipeline.utils.node_wrapper import pipeline_node
 
-from backend.llm.providers import get_llm
-from backend.llm.prompts import (
+from content_engine.backend.llm.providers import get_llm
+from content_engine.backend.llm.prompts import (
     PLATFORM_PROMPTS,
     LINKEDIN_PSYCHOLOGY,
     TWITTER_PSYCHOLOGY,
     STYLE_INJECTION,
     BLOG_POST_PROMPT,
 )
-from backend.config.settings import get_settings
-from backend.utils.logger import get_logger
+from content_engine.backend.config.settings import get_settings
+from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

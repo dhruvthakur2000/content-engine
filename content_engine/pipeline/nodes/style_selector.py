@@ -2,9 +2,9 @@
 # pipeline/nodes/style_selector.py
 # ============================================================
 
-from pipeline.state import PipelineState
-from backend.llm.style_loader import load_style
-from pipeline.utils.node_wrapper import pipeline_node
+from content_engine.pipeline.state import PipelineState
+from content_engine.backend.llm.style_loader import load_style
+from content_engine.pipeline.utils.node_wrapper import pipeline_node
 
 
 DEFAULT_STYLE = "dhruv_default"
