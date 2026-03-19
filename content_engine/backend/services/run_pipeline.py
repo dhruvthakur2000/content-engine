@@ -4,13 +4,13 @@ from typing import Optional, List, Dict, Any
 
 from content_engine.pipeline.graph import get_pipeline
 
-from backend.ingestion.dump_parser import DumpParserService
-from backend.ingestion.git_parsar import GitLogService
+from content_engine.backend.ingestion.dump_parser import DumpParserService
+from content_engine.backend.ingestion.git_parsar import GitLogService
 
-from backend.memory.content_memory import search_memory, store_memory
+from content_engine.backend.memory.content_memory import search_memory, store_memory
 
-from backend.config.settings import get_settings
-from backend.utils.logger import get_logger
+from content_engine.backend.config.settings import get_settings
+from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 settings = get_settings()

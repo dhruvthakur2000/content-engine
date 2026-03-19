@@ -1,6 +1,6 @@
 import time
 from functools import wraps
-from backend.utils.logger import get_logger
+from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

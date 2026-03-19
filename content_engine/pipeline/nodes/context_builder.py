@@ -4,8 +4,8 @@
 
 from datetime import datetime
 
-from pipeline.state import PipelineState
-from pipeline.utils.node_wrapper import pipeline_node
+from content_engine.pipeline.state import PipelineState
+from content_engine.pipeline.utils.node_wrapper import pipeline_node
 
 
 @pipeline_node("context_builder")

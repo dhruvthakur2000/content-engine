@@ -2,17 +2,17 @@ import threading
 
 from langgraph.graph import StateGraph, END
 
-from pipeline.state import PipelineState
+from content_engine.pipeline.state import PipelineState
 
-from pipeline.nodes.parse_notes import parse_notes_node
-from pipeline.nodes.parse_git import parse_git_node
-from pipeline.nodes.context_builder import context_builder_node
-from pipeline.nodes.angle import angle_node
-from pipeline.nodes.style_selector import style_selector_node
-from pipeline.nodes.blog_blueprint import blog_blueprint_node
-from pipeline.nodes.post_generator import post_generator_node
+from content_engine.pipeline.nodes.parse_notes import parse_notes_node
+from content_engine.pipeline.nodes.parse_git import parse_git_node
+from content_engine.pipeline.nodes.context_builder import context_builder_node
+from content_engine.pipeline.nodes.angle import angle_node
+from content_engine.pipeline.nodes.style_selector import style_selector_node
+from content_engine.pipeline.nodes.blog_blueprint import blog_blueprint_node
+from content_engine.pipeline.nodes.post_generator import post_generator_node
 
-from backend.utils.logger import get_logger
+from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

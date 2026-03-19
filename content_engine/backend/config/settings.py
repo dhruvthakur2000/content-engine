@@ -2,7 +2,6 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
-
 class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
@@ -171,6 +170,15 @@ class Settings(BaseSettings):
     )
 
     # =========================================================
+    # SECURITY - ADMIN ENDPOINTS
+    # =========================================================
+
+    admin_api_key: str = Field(
+        default="",
+        description="API key for admin endpoints. Leave empty to disable admin auth (dev only). Set in production!"
+    )
+
+    # =========================================================
     # LOGGING
     # =========================================================
 
@@ -205,6 +213,10 @@ class Settings(BaseSettings):
     @property
     def hf_token_configured(self) -> bool:
         return bool(self.hf_token and self.hf_token.strip())
+
+    @property
+    def admin_auth_enabled(self) -> bool:
+        return bool(self.admin_api_key and self.admin_api_key.strip())
 
     @property
     def api_base_url(self) -> str:

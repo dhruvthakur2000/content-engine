@@ -38,6 +38,16 @@ class GenerateRequest(BaseModel):
         description="Developer name for personalization",
         example="Dhruv"
     )
+    
+    style: Optional[str] = Field(
+        default="dhruv_default",
+        description="Style profile to use"
+    )
+
+    extra_material: Optional[str] = Field(
+        default="",
+        description="Optional blog enrichment material"
+    )
 
     class Config:
         json_schema_extra = {

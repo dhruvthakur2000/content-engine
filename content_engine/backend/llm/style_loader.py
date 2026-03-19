@@ -9,7 +9,7 @@ from pathlib import Path
 from functools import lru_cache
 from typing import List
 
-from backend.utils.logger import get_logger
+from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
