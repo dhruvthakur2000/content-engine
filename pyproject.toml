@@ -1,29 +1,32 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "content_engine"
 version = "0.1.0"
 description = "Developer activity → automated content generator"
-authors = ["Dhruv Thakur"]
+authors = [{name = "Dhruv Thakur"}]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "langgraph",
+    "openai",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "structlog",
+    "streamlit",
+    "httpx",
+    "langchain-openai>=1.1.11",
+    "chromadb>=1.5.5",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-
-fastapi = "*"
-uvicorn = "*"
-langgraph = "*"
-openai = "*"
-pydantic = "*"
-pydantic-settings = "*"
-python-dotenv = "*"
-structlog = "*"
-streamlit = "*"
-httpx = "*"
-
-[tool.poetry.group.dev.dependencies]
-black = "*"
-ruff = "*"
-GitPython = "*"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project.optional-dependencies]
+dev = [
+    "black",
+    "ruff",
+    "GitPython",
+]

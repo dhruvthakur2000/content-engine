@@ -15,7 +15,7 @@ class DumpParserService:
     cohesive service while preserving the exact logic.
     """
 
-    MAX_CHARS = 10_000
+    MAX_CHARS = 10000
 
     def __init__(self, default_dump_path: str = "inputs/today_dump.txt"):
         """

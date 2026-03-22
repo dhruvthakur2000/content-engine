@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Type 
+from typing import Optional, Type, Dict
 import time
 import threading
 from langchain_openai import  ChatOpenAI
@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 #Model routing using a dict
 
-Task_model_map=dict[str,str]={
+Task_model_map: Dict[str, str] = {
     "parse": settings.parse_model,
     "reason": settings.reason_model,
     "generation": settings.generation_model,
@@ -21,7 +21,7 @@ Task_model_map=dict[str,str]={
 
 #fallback chain for generation Task
 
-Fallback_model: list[str]=[
+Fallback_model: list[str] = [
     settings.fallback_model_1,
     settings.fallback_model_2
 ]
@@ -36,7 +36,7 @@ def _create_client(model: str) -> ChatOpenAI:
 
     return ChatOpenAI(
         model=model,
-        openai_api_key=settings.hf_api_key,
+        openai_api_key=settings.hf_token,
         openai_api_base=settings.hf_base_url,
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,
@@ -64,8 +64,7 @@ class ProviderManager:
             router= self.settings.hf_base_url
         )
         
-        
-        
+         
     # --------------------------------------------------------
     # model selection
     # --------------------------------------------------------
