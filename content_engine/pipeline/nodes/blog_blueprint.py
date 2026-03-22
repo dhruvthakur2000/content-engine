@@ -36,6 +36,7 @@ def blog_blueprint_node(state: PipelineState) -> PipelineState:
     prompt = BLOG_BLUEPRINT_PROMPT.format(
         context=context,
         extra_material=extra_material,
+        style_guide=style_guide
     )
 
     response = llm.invoke([HumanMessage(content=prompt)])

@@ -30,12 +30,12 @@ class Settings(BaseSettings):
     # =========================================================
 
     parse_model: str = Field(
-        default="Qwen/Qwen2.5-7B-Instruct",
+        default="meta-llama/Meta-Llama-3-8B-Instruct",
         description="Model used for parsing tasks"
     )
 
     reason_model: str = Field(
-        default="Qwen/Qwen2.5-14B-Instruct",
+        default= "meta-llama/Meta-Llama-3-8B-Instruct",
         description="Model used for reasoning"
     )
 
@@ -54,12 +54,12 @@ class Settings(BaseSettings):
     # =========================================================
 
     fallback_model_1: str = Field(
-        default="Qwen/Qwen2.5-32B-Instruct",
+        default="meta-llama/Meta-Llama-3-8B-Instruct",
         description="First fallback model"
     )
 
     fallback_model_2: str = Field(
-        default="Qwen/Qwen2.5-14B-Instruct",
+        default="meta-llama/Meta-Llama-3-8B-Instruct",
         description="Second fallback model"
     )
 
@@ -200,6 +200,25 @@ class Settings(BaseSettings):
 
     app_version: str = Field(
         default="2.0.0"
+    )
+
+    # =========================================================
+    # AUTHOR CONFIGURATION
+    # =========================================================
+
+    author_name: str = Field(
+        default="Developer",
+        description="Name of the content author for personalization"
+    )
+
+    author_role: str = Field(
+        default="Software Engineer",
+        description="Role/title of the author for persona generation"
+    )
+
+    author_project: str = Field(
+        default="My Project",
+        description="Primary project the author works on"
     )
 
     # =========================================================

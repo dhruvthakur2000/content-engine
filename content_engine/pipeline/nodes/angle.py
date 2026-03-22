@@ -3,7 +3,7 @@ from langchain_core.messages import HumanMessage
 from content_engine.pipeline.state import PipelineState
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
 from content_engine.backend.llm.providers import get_llm
-from content_engine.backend.llm.prompts import NARRATIVE_ANGLE_PROMPT
+from content_engine.backend.llm.prompts import ANGLE_PROMPT
 from content_engine.backend.cache.cache_manager import get_cache
 from content_engine.backend.utils.logger import get_logger
 
@@ -63,7 +63,7 @@ def angle_node(state: PipelineState) -> PipelineState:
     # -----------------------------------------------------
     # LLM CALL (cache miss)
     # -----------------------------------------------------
-    prompt = NARRATIVE_ANGLE_PROMPT.format(context=context)
+    prompt = ANGLE_PROMPT.format(context=context)
 
     try:
         response = llm.invoke(

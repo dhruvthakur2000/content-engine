@@ -2,18 +2,30 @@ import structlog
 import logging
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+import json
 
 def setup_logging(log_level: str = "INFO"):
     """Configure structured logging for the application. Logs to console and file."""
+    # Define IST timezone (UTC+5:30)
+    IST = timezone(timedelta(hours=5, minutes=30))
+    
+    # Custom timestamp processor for IST
+    def add_ist_timestamp(logger, name, event_dict):
+        """Add IST timestamp to log events."""
+        now_ist = datetime.now(IST)
+        event_dict['timestamp'] = now_ist.isoformat()
+        return event_dict
+    
     # Create logs directory if it doesn't exist
     log_dir = os.path.join(os.getcwd(), "logs")
     os.makedirs(log_dir, exist_ok=True)
 
-    # Create log file with timestamp
+    # Create log file with IST timestamp
+    now_ist = datetime.now(IST)
     log_file = os.path.join(
         log_dir,
-        f"app_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+        f"app_{now_ist.strftime('%Y-%m-%d_%H-%M-%S')}.log"
     )
 
     # Console handler
@@ -32,12 +44,12 @@ def setup_logging(log_level: str = "INFO"):
     root_logger.addHandler(stream_handler)
     root_logger.addHandler(file_handler)
 
-    # Configure structlog to use stdlib logger
+    # Configure structlog to use stdlib logger with IST timestamps
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
+            add_ist_timestamp,  # Custom IST timestamp processor
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer()

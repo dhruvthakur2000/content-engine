@@ -1,0 +1,5 @@
+{
+  "narrative_angle": "SYSTEM_INSIGHT",
+  "hook": "A new pipeline instance can now be initialized seamlessly using the build_pipeline() function.",
+  "key_detail": "The build_pipeline() function was used to initialize the pipeline instance."
+}

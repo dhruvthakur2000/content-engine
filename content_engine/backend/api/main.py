@@ -13,7 +13,7 @@ from content_engine.backend.services.run_pipeline import run_pipeline_service
 from content_engine.backend.llm.style_loader import list_available_styles
 from content_engine.backend.utils.logger import setup_logging, get_logger
 from content_engine.backend.config.settings import get_settings
-from content_engine.backend.cache.cache_manager import get_cache_stats, clear_cache
+from content_engine.backend.cache.cache_manager import CacheManager
 from content_engine.backend.memory.content_memory import get_memory_stats
 from content_engine.pipeline.graph import get_pipeline
 
@@ -23,8 +23,7 @@ settings= get_settings()
 #---LOGGING-------------------------------------------------
 
 setup_logging(
-    log_level= settings.log_level,
-    log_dir=settings.log_dir,
+    log_level=settings.log_level,
 )
 
 logger = get_logger(__name__)
@@ -124,7 +123,7 @@ async def root() -> Dict[str, Any]:
         "app": settings.app_name,
         "version": settings.app_version,
         "environment": settings.app_env,
-        "timestamp": datetime.now().isoformat() + "Z",
+        "timestamp": datetime.now().isoformat(),
         "docs": "/docs",
         "features":[
             "platform_psychology",
@@ -183,7 +182,7 @@ async def health_check() -> Dict[str, Any]:
     
     # Check 6: Cache system availability
     try:
-        cache_stats = get_cache_stats()
+        cache_stats = cache_stats
         checks["cache_available"] = cache_stats.get("status") == "healthy"
     except Exception as e:
         logger.warning("cache_check_failed", error=str(e))
@@ -311,7 +310,7 @@ async def list_models() -> Dict[str, Any]:
 @app.get("/cache/stats")
 async def cache_stats(_: str = Depends(verify_admin_api_key)) -> Dict[str, Any]:
     try:
-        return get_cache_stats()
+        return cache_stats()
     except Exception as e:
         logger.error("cache_stats_failed", error=str(e))
         raise HTTPException(
@@ -330,7 +329,7 @@ async def cache_clear(
     _: str = Depends(verify_admin_api_key),
 ) -> Dict[str, Any]:
     try:
-        deleted = clear_cache(older_than_hours=older_than_hours)
+        deleted = cache_clear(older_than_hours=older_than_hours)
         logger.info("cache_cleared", deleted_files=deleted, older_than_hours=older_than_hours)
         return {
             "deleted_files": deleted,

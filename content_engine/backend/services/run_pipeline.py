@@ -84,11 +84,11 @@ def run_pipeline_service(
     # --------------------------------------------------------
 
     if platforms is None:
-        platforms = ["linkedin", "twitter"]
+        platforms = ["linkedin", "twitter","blogsS"]
 
     platforms = [p.lower().strip() for p in platforms]
 
-    valid_platforms = {"linkedin", "twitter", "blog"}
+    valid_platforms = {"linkedin", "twitter", "blogs"}
 
     platforms = [p for p in platforms if p in valid_platforms] or ["linkedin", "twitter"]
 
@@ -97,7 +97,8 @@ def run_pipeline_service(
     # --------------------------------------------------------
 
     try:
-        cleaned_notes = DumpParserService.parse_notes_from_string(raw_notes)
+        notes_parser=DumpParserService()
+        cleaned_notes = notes_parser.parse_notes_from_string(raw_notes)
 
     except ValueError as e:
 
@@ -108,8 +109,9 @@ def run_pipeline_service(
             "error": str(e),
         }
 
+    git_parser=GitLogService()
     cleaned_git = (
-        GitLogService.parse_git_log_string(raw_git_log)
+        git_parser.parse_git_log_string(raw_git_log)
         if raw_git_log and raw_git_log.strip()
         else "[GIT LOG UNAVAILABLE]"
     )

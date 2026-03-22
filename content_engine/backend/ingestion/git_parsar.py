@@ -103,7 +103,7 @@ class GitLogService:
         )
 
         return git_log_text
-
+    
     def parse_git_log_string(self, raw_git_log: str) -> str:
         """
         Cleans a manually provided git log string.

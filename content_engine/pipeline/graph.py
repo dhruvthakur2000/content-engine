@@ -51,13 +51,7 @@ def build_pipeline():
 
     graph.set_entry_point("parse_notes")
 
-    # --------------------------------------------------------
-    # PARALLEL START
-    # --------------------------------------------------------
-
-    graph.add_edge("parse_notes", "context_builder")
     graph.add_edge("parse_notes", "parse_git")
-
     graph.add_edge("parse_git", "context_builder")
 
     # --------------------------------------------------------
@@ -73,7 +67,7 @@ def build_pipeline():
     compiled = graph.compile()
 
     logger.info(
-        "pipeline_compiled_parallel",
+        "pipeline has been compiled with:",
         node_count=len(nodes),
         nodes=list(nodes.keys()),
     )

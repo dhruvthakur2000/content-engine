@@ -1,0 +1,5 @@
+{
+  "narrative_angle": "PERFORMANCE_BREAKTHROUGH",
+  "hook": "Websocket latency was reduced by a whopping 280ms.",
+  "key_detail": "The latency reduction was achieved through fixing websocket buffering issues, providing a specific and credible detail about the solution."
+}
