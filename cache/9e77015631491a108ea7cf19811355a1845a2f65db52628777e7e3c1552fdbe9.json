@@ -1,3 +1,0 @@
-{
-  "parsed_notes": "METRICS: \nENGINEERING_ACTIONS: \nPROBLEMS: \nDECISIONS: 16-bit PCM is the industry standard for final audio distribution and playback.\nEXPERIMENTS: \nINSIGHTS: The developer noted that 16-bit PCM is used as the standard for final audio distribution and playback due to its adequate dynamic range for human hearing and typical use cases.\nSUMMARY: The developer observed and recorded that 16-bit Pulse Code Modulation (PCM) is the industry standard for final audio distribution and playback. This standard was chosen because it provides a dynamic range that is sufficient for human hearing and typical usage scenarios. No specific engineering actions, problems, experiments, or insights beyond this observation were mentioned in the notes."
-}

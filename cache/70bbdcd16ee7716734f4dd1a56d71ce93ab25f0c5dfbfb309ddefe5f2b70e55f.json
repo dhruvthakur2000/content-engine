@@ -1,3 +1,0 @@
-{
-  "parsed_notes": "METRICS: 820ms, 580ms\nENGINEERING_ACTIONS: Fixed websocket buffering.\nPROBLEMS: \nDECISIONS: \nEXPERIMENTS: \nINSIGHTS: \nSUMMARY: The developer addressed an issue with websocket buffering, which reduced the latency from 820ms to 580ms. No additional details on problems, decisions, experiments, or insights were provided. This improvement suggests that the initial buffering was causing significant delays in data transmission over the websocket connection."
-}
