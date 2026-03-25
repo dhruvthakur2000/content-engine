@@ -4,7 +4,8 @@ from langchain_core.messages import HumanMessage
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
-
+from content_engine.backend.utils.debug_nodes import save_debug
+from content_engine.backend.llm.prompts import PROMPT_VERSION
 from content_engine.backend.llm.providers import get_llm
 from content_engine.backend.llm.prompts import generate_content_prompt
 from content_engine.backend.config.settings import get_settings
@@ -14,7 +15,7 @@ logger = get_logger(__name__)
 
 NODE_NAME = "post_generator"
 llm = get_llm()
-
+prompt_version=PROMPT_VERSION
 VALID_PLATFORMS = ["linkedin", "twitter", "blog"]
 
 
@@ -90,9 +91,10 @@ def post_generator_node(state: PipelineState) -> PipelineState:
         "model": settings.generation_model,
         "platforms_generated": list(generated_posts.keys()),
         "narrative_angle": narrative_angle,
+        "prompt_version": prompt_version,
         "style_used": state.get("style", "dhruv_default"),
     }
-
+    save_debug("generated_post",generated_posts)
     return {
         "generated_posts": generated_posts,
         "metadata": metadata,

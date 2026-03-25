@@ -6,6 +6,8 @@ from langchain_core.messages import HumanMessage
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.backend.llm.providers import get_llm
+from content_engine.backend.utils.debug_nodes import save_debug
+
 from content_engine.backend.llm.prompts import BLOG_BLUEPRINT_PROMPT
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
 
@@ -42,5 +44,5 @@ def blog_blueprint_node(state: PipelineState) -> PipelineState:
     response = llm.invoke([HumanMessage(content=prompt)])
 
     blueprint = response.content.strip()
-
+    save_debug("blog_blueprint",blueprint)
     return {"blog_blueprint": blueprint}

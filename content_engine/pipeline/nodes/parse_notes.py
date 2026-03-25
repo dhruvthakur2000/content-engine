@@ -4,6 +4,7 @@ from langchain_core.messages import HumanMessage
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
+from content_engine.backend.utils.debug_nodes import save_debug
 
 from content_engine.backend.llm.providers import get_llm
 from content_engine.backend.llm.prompts import PARSE_NOTES_PROMPT
@@ -85,6 +86,7 @@ def parse_notes_node(state: PipelineState) -> PipelineState:
         )
 
     # Note: @pipeline_node decorator will log node_completed automatically
+    save_debug("parsed_notes",parsed_notes)
     return {
         "parsed_notes": parsed_notes
     }

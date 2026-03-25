@@ -4,6 +4,8 @@
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.backend.llm.style_loader import load_style
+from content_engine.backend.utils.debug_nodes import save_debug
+
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
 
 
@@ -20,4 +22,5 @@ def style_selector_node(state: PipelineState) -> PipelineState:
 
     style_guide = load_style(style_name)
 
+    save_debug("style_guide",style_guide)
     return {"style_guide": style_guide}
