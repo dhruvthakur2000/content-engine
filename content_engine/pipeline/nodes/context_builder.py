@@ -6,6 +6,7 @@ from datetime import datetime
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
+from content_engine.backend.utils.debug_nodes import save_debug
 
 
 @pipeline_node("context_builder")
@@ -69,5 +70,5 @@ def context_builder_node(state: PipelineState) -> PipelineState:
     context_parts.append("=================================")
 
     context = "\n".join(context_parts)
-
+    save_debug("context",context)
     return {"context": context}

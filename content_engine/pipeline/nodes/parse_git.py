@@ -4,6 +4,8 @@ from langchain_core.messages import HumanMessage
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
+from content_engine.backend.utils.debug_nodes import save_debug
+
 
 from content_engine.backend.llm.providers import get_llm
 from content_engine.backend.llm.prompts import PARSE_GIT_PROMPT
@@ -103,7 +105,7 @@ def parse_git_node(state: PipelineState) -> PipelineState:
             result={"parsed_git": parsed_git},
             node_name=NODE_NAME,
         )
-
+    save_debug("parsed_git",parsed_git)
     return {
         "parsed_git": parsed_git
     }
