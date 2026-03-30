@@ -11,7 +11,7 @@ from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-NODE_NAME = "angle_generator"
+NODE_NAME = "angle_generator"  
 
 DEFAULT_ANGLE = "ENGINEERING_UPDATE"
 DEFAULT_HOOK = "Here's what I built today."

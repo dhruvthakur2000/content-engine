@@ -30,6 +30,7 @@ def pipeline_node(node_name: str):
                     "node_failed",
                     node=node_name,
                     error=str(e),
+                    error_type=type(e).__name__,
                 )
 
                 result = {"error": f"{node_name} failed: {str(e)}"}

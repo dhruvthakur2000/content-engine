@@ -136,6 +136,60 @@ class Settings(BaseSettings):
         le=1.0
     )
 
+    # MULTI-AGENT CONFIG (V3)
+ 
+    max_agent_workers: int = Field(
+        default=4,
+        ge=1,
+        le=10
+    )
+    
+    agent_parallel_execution: bool = Field(
+        default=True
+    )
+ 
+    # EVALUATION FRAMEWORK
+ 
+    eval_enabled: bool = Field(
+        default=True,
+        description="Run evaluator_node after generation"
+    )
+ 
+    eval_min_specificity: int = Field(
+        default=6, ge=1, le=10,
+        description="Minimum specificity score (1-10) to pass"
+    )
+ 
+    eval_max_ai_tone: int = Field(
+        default=4, ge=1, le=10,
+        description="Maximum AI-tone score (1-10) to pass — lower is better"
+    )
+ 
+    eval_max_regenerations: int = Field(
+        default=2, ge=0, le=5,
+        description="Max times to regenerate if eval fails"
+    )
+ 
+    # SECURITY (V3 Phase 5) 
+    security_enabled: bool = Field(
+        default=True,
+        description="Run security_node before pipeline starts"
+    )
+ 
+    # Comma-separated list of forbidden patterns in user input
+    security_blocked_patterns: str = Field(
+        default="ignore previous instructions,disregard your,you are now,act as,jailbreak",
+        description="Prompt injection detection patterns"
+    )
+ 
+    # GITHUB INTEGRATION
+ 
+    github_token: str = Field(default="", description="GitHub personal access token")
+    github_owner: str = Field(default="", description="GitHub username or org")
+    github_repo: str = Field(default="", description="Default GitHub repo name")
+
+
+    '''
     # =========================================================
     # PIPELINE EXECUTION
     # =========================================================
@@ -144,7 +198,8 @@ class Settings(BaseSettings):
         default=4,
         description="Concurrent pipeline executions"
     )
-
+    '''
+    
     # =========================================================
     # APPLICATION SETTINGS
     # =========================================================
@@ -249,7 +304,9 @@ class Settings(BaseSettings):
     def default_platforms_list(self):
         return [p.strip() for p in self.default_platforms.split(",") if p.strip()]
 
-
+    @property
+    def security_blocked_patterns_list(self):
+        return [p.strip().lower() for p in self.security_blocked_patterns.split(",") if p.strip()]
 # ============================================================
 # SETTINGS SINGLETON
 # ============================================================

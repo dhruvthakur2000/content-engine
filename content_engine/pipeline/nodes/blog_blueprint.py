@@ -1,48 +1,55 @@
-# ============================================================
-# pipeline/nodes/blog_blueprint.py
-# ============================================================
-
-from langchain_core.messages import HumanMessage
-
 from content_engine.pipeline.state import PipelineState
-from content_engine.backend.llm.providers import get_llm
-from content_engine.backend.utils.debug_nodes import save_debug
-
+from content_engine.pipeline.utils.node_wrapper import pipeline_node as _pn6
+from content_engine.backend.llm.providers import get_llm as _get_llm6
+from content_engine.backend.cache.cache_manager import get_cache as _get_cache6
 from content_engine.backend.llm.prompts import BLOG_BLUEPRINT_PROMPT
-from content_engine.pipeline.utils.node_wrapper import pipeline_node
+from content_engine.backend.utils.logger import get_logger as _get_logger6
+
+_llm6 = _get_llm6()
+_cache6 = _get_cache6()
+_logger6 = _get_logger6("blog_blueprint")
+
+NODE_NAME = "blog_blueprint"
 
 
-llm = get_llm()
-
-
-@pipeline_node("blog_blueprint")
+@_pn6(NODE_NAME)
 def blog_blueprint_node(state: PipelineState) -> PipelineState:
-    """
-    Generates a structured blueprint for the blog post.
-    """
 
-    platforms = state.get("platforms", [])
-    if "blog" not in [p.lower() for p in platforms]:
+    platforms = [p.lower() for p in state.get("platforms", [])]
+
+    if "blog" not in platforms:
         return {"blog_blueprint": ""}
 
-    context = state.get("context", "")
-    style_guide = state.get("style_guide", "")
+    context = state.get("context", "").strip()
 
-    extra_material = state.get("extra_material", "").strip()
-    if not extra_material:
-        extra_material = "No additional material provided. Use the engineering context only."
+    if not context or len(context) < 30:
+        return {"blog_blueprint": "[No context available]"}
 
-    if not context or len(context.strip()) < 30:
-        return {"blog_blueprint": "[No context available for blog blueprint]"}
+    cache_key = f"{context}|blog_blueprint_v1"
+
+    cached = _cache6.read(input_data=cache_key, node_name=NODE_NAME)
+
+    if cached and "blog_blueprint" in cached:
+        return {"blog_blueprint": cached["blog_blueprint"]}
+
+    extra_material = state.get("extra_material", "").strip() or "No additional material provided."
+    blog_style = state.get("blog_style", "build_in_public")
 
     prompt = BLOG_BLUEPRINT_PROMPT.format(
         context=context,
         extra_material=extra_material,
-        style_guide=style_guide
+        blog_style=blog_style,
     )
 
-    response = llm.invoke([HumanMessage(content=prompt)])
+    try:
+        from langchain_core.messages import HumanMessage as HM6
+        response = _llm6.invoke([HM6(content=prompt)], task="blog")
+        blueprint = response.content.strip()
 
-    blueprint = response.content.strip()
-    save_debug("blog_blueprint",blueprint)
+    except Exception as e:
+        _logger6.error("blog_blueprint_error", error=str(e))
+        blueprint = f"[Blueprint generation failed: {str(e)}]"
+
+    _cache6.write(input_data=cache_key, result={"blog_blueprint": blueprint}, node_name=NODE_NAME)
+
     return {"blog_blueprint": blueprint}

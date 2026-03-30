@@ -34,6 +34,7 @@ def build_pipeline():
 
     nodes = {
         "parse_notes": parse_notes_node,
+        
         "parse_git": parse_git_node,
         "context_builder": context_builder_node,
         "angle_generator": angle_node,
