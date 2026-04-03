@@ -1,26 +1,23 @@
-# ============================================================
-# pipeline/nodes/style_selector.py
-# ============================================================
-
 from content_engine.pipeline.state import PipelineState
+from content_engine.pipeline.utils.node_wrapper import pipeline_node as _pn5
 from content_engine.backend.llm.style_loader import load_style
-from content_engine.backend.utils.debug_nodes import save_debug
+from content_engine.backend.utils.logger import get_logger as _get_logger5
 
-from content_engine.pipeline.utils.node_wrapper import pipeline_node
-
-
-DEFAULT_STYLE = "dhruv_default"
+_logger5 = _get_logger5("style_selector")
 
 
-@pipeline_node("style_selector")
+@_pn5("style_selector")
 def style_selector_node(state: PipelineState) -> PipelineState:
-    """
-    Loads the creator style profile and injects it into the pipeline state.
-    """
 
-    style_name = state.get("style", DEFAULT_STYLE) or DEFAULT_STYLE
+    style_name = state.get("style", "dhruv_default")
 
-    style_guide = load_style(style_name)
+    try:
+        style_guide = load_style(style_name)
 
-    save_debug("style_guide",style_guide)
+    except Exception as e:
+        _logger5.error("style_load_failed", error=str(e))
+        style_guide = "Default writing style."
+
+    _logger5.info("style_selected", style=style_name, chars=len(style_guide))
+
     return {"style_guide": style_guide}

@@ -1,0 +1,197 @@
+import re
+import hashlib
+from typing import Optional, List
+from dataclasses import dataclass
+
+from content_engine.backend.utils.logger import get_logger
+from content_engine.backend.cache.cache_manager import get_cache
+
+logger = get_logger(__name__)
+cache = get_cache()
+
+# DATA MODEL
+
+@dataclass
+class FetchedURL:
+    url: str
+    title: str = ""
+    extracted_text: str = ""
+    summary: str = ""
+    word_count: int = 0
+    error: Optional[str] = None
+    success: bool = False
+
+
+# FETCHER
+
+class URLFetcher:
+
+    MAX_TEXT_CHARS = 12000  # prevent huge pages
+
+    def fetch_and_extract(self, url: str) -> FetchedURL:
+
+        # ---------- CACHE CHECK ----------
+        cached = cache.read(input_data=url, node_name="url_fetch")
+
+        if cached:
+            logger.info("url_cache_hit", url=url[:60])
+            return FetchedURL(**cached)
+
+        try:
+            import httpx
+
+            logger.info("url_fetch_start", url=url[:80])
+
+            response = httpx.get(
+                url,
+                headers={"User-Agent": "ContentEngine/2.0"},
+                timeout=10,
+                follow_redirects=True,
+            )
+
+            if response.status_code != 200:
+                return FetchedURL(url=url, error=f"HTTP {response.status_code}")
+
+            html = response.text
+
+            title = self._extract_title(html)
+            text = self._extract_text(html)
+
+            if not text or len(text) < 200:
+                return FetchedURL(
+                    url=url,
+                    title=title,
+                    error="Extraction failed (too little text)",
+                )
+
+            if len(text) > self.MAX_TEXT_CHARS:
+                text = text[:self.MAX_TEXT_CHARS] + " [...truncated]"
+
+            result = FetchedURL(
+                url=url,
+                title=title,
+                extracted_text=text,
+                word_count=len(text.split()),
+                success=True,
+            )
+
+            # ---------- CACHE WRITE ----------
+            cache.write(
+                input_data=url,
+                result=result.__dict__,
+                node_name="url_fetch",
+            )
+
+            return result
+
+        except Exception as e:
+            logger.warning("url_fetch_failed", url=url[:80], error=str(e))
+            return FetchedURL(url=url, error=str(e))
+
+    # --------------------------------------------------
+
+    def _extract_title(self, html: str) -> str:
+        match = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+        return re.sub(r"\s+", " ", match.group(1)).strip() if match else ""
+
+    # --------------------------------------------------
+
+    def _extract_text(self, html: str) -> str:
+
+        # Remove scripts/styles
+        html = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
+
+        # Extract body
+        match = re.search(r"<body[^>]*>(.*?)</body>", html, re.S | re.I)
+        html = match.group(1) if match else html
+
+        # Remove tags
+        text = re.sub(r"<[^>]+>", " ", html)
+
+        # Decode entities
+        text = (
+            text.replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&nbsp;", " ")
+        )
+
+        # Clean
+        text = re.sub(r"\s+", " ", text).strip()
+
+        # Keep only meaningful sentences
+        sentences = [s.strip() for s in text.split(". ") if len(s.strip()) > 40]
+
+        return ". ".join(sentences[:200])
+
+
+# SUMMARIZATION (OPTIONAL LLM)
+def summarize_text(text: str, title: str, url: str, llm=None) -> str:
+
+    # ---------- FAST MODE (NO LLM) ----------
+    if not llm:
+        return text[:800]
+
+    try:
+        from langchain_core.messages import HumanMessage
+
+        prompt = f"""
+Extract key technical insights.
+
+TITLE: {title}
+TEXT:
+{text[:4000]}
+
+Return:
+- Key facts (bullets)
+- Tools / techniques
+- Important numbers
+"""
+
+        response = llm.invoke([HumanMessage(content=prompt)], task="parse")
+        return response.content.strip()
+
+    except Exception:
+        return text[:800]
+
+
+# MAIN ENTRYPOINT
+
+def fetch_and_summarize_urls(urls: List[str], llm=None) -> str:
+
+    if not urls:
+        return ""
+
+    fetcher = URLFetcher()
+    results = []
+
+    for url in urls[:3]:  # control context size
+        fetched = fetcher.fetch_and_extract(url.strip())
+
+        if not fetched.success:
+            logger.warning("url_skipped", url=url[:60], error=fetched.error)
+            continue
+
+        fetched.summary = summarize_text(
+            fetched.extracted_text,
+            fetched.title,
+            fetched.url,
+            llm=llm,
+        )
+
+        results.append(fetched)
+
+    if not results:
+        return ""
+
+    # ---------- BUILD CONTEXT ----------
+    parts = ["=== EXTERNAL REFERENCES ===", ""]
+
+    for r in results:
+        parts.append(f"{r.title or r.url}")
+        parts.append(r.summary[:800])
+        parts.append("")
+
+    parts.append("=== END REFERENCES ===")
+
+    return "\n".join(parts)

@@ -1,98 +1,65 @@
-from langchain_core.messages import HumanMessage
-
 from content_engine.pipeline.state import PipelineState
-from content_engine.pipeline.utils.node_wrapper import pipeline_node
-from content_engine.backend.llm.providers import get_llm
-from content_engine.backend.utils.debug_nodes import save_debug
-
+from content_engine.pipeline.utils.node_wrapper import pipeline_node as _pn4
+from content_engine.backend.llm.providers import get_llm as _get_llm4
+from content_engine.backend.cache.cache_manager import get_cache as _get_cache4
 from content_engine.backend.llm.prompts import ANGLE_PROMPT
-from content_engine.backend.cache.cache_manager import get_cache
-from content_engine.backend.utils.logger import get_logger
+from content_engine.backend.utils.logger import get_logger as _get_logger4
 
-logger = get_logger(__name__)
+_llm4 = _get_llm4()
+_cache4 = _get_cache4()
+_logger4 = _get_logger4("angle_node")
 
-NODE_NAME = "angle_generator"  
+NODE_NAME = "angle_generator"
 
-DEFAULT_ANGLE = "ENGINEERING_UPDATE"
+DEFAULT_ANGLE = "SYSTEM_INSIGHT"
 DEFAULT_HOOK = "Here's what I built today."
 DEFAULT_KEY_DETAIL = "See context for details."
 
-llm = get_llm()
-cache = get_cache()
 
-
-@pipeline_node(NODE_NAME)
+@_pn4(NODE_NAME)
 def angle_node(state: PipelineState) -> PipelineState:
-    """
-    LangGraph node: Selects narrative angle, hook, and key detail.
 
-    Reads:
-        state["context"]
+    context = state.get("context", "").strip()
 
-    Writes:
-        state["narrative_angle"]
-        state["hook"]
-        state["key_detail"]
-    """
-
-    context = state.get("context", "")
-
-    # -----------------------------------------------------
-    # HANDLE EMPTY CONTEXT
-    # -----------------------------------------------------
-    if not context or len(context.strip()) < 50:
+    if not context or len(context) < 50:
         return {
             "narrative_angle": DEFAULT_ANGLE,
             "hook": DEFAULT_HOOK,
             "key_detail": DEFAULT_KEY_DETAIL,
         }
 
-    # -----------------------------------------------------
-    # CACHE CHECK
-    # -----------------------------------------------------
-    cached = cache.read(input_data=context, node_name=NODE_NAME)
+    cache_key = f"{context}|v2"
+
+    cached = _cache4.read(input_data=cache_key, node_name=NODE_NAME)
 
     if isinstance(cached, dict) and "narrative_angle" in cached:
-        existing_hits = state.get("cache_hits", [])
-
         return {
             "narrative_angle": cached.get("narrative_angle", DEFAULT_ANGLE),
             "hook": cached.get("hook", DEFAULT_HOOK),
             "key_detail": cached.get("key_detail", DEFAULT_KEY_DETAIL),
-            "cache_hits": existing_hits + [NODE_NAME],
+            "cache_hits": state.get("cache_hits", []) + [NODE_NAME],
         }
 
-    # -----------------------------------------------------
-    # LLM CALL (cache miss)
-    # -----------------------------------------------------
     prompt = ANGLE_PROMPT.format(context=context)
 
     try:
-        response = llm.invoke(
-            [HumanMessage(content=prompt)],
-            task="reason"
-        )
-
+        from langchain_core.messages import HumanMessage as HM4
+        response = _llm4.invoke([HM4(content=prompt)], task="reason")
         raw_output = response.content.strip()
 
     except Exception as e:
-        logger.error("angle_node_llm_error", error=str(e))
-
+        _logger4.error("angle_llm_error", error=str(e))
         return {
             "narrative_angle": DEFAULT_ANGLE,
             "hook": DEFAULT_HOOK,
             "key_detail": DEFAULT_KEY_DETAIL,
         }
 
-    # -----------------------------------------------------
-    # PARSE STRUCTURED OUTPUT
-    # -----------------------------------------------------
     narrative_angle = DEFAULT_ANGLE
     hook = DEFAULT_HOOK
     key_detail = DEFAULT_KEY_DETAIL
 
     for line in raw_output.split("\n"):
-
         line = line.strip()
 
         if line.upper().startswith("ANGLE:"):
@@ -104,31 +71,12 @@ def angle_node(state: PipelineState) -> PipelineState:
         elif line.upper().startswith("KEY_DETAIL:"):
             key_detail = line.split(":", 1)[1].strip()
 
-    # Warn if parsing failed
-    if narrative_angle == DEFAULT_ANGLE and hook == DEFAULT_HOOK:
-        logger.warning(
-            "angle_parse_incomplete",
-            raw_output_preview=raw_output[:200]
-        )
-        
-
-
-    # -----------------------------------------------------
-    # WRITE CACHE
-    # -----------------------------------------------------
-    result_to_cache = {
+    result = {
         "narrative_angle": narrative_angle,
         "hook": hook,
         "key_detail": key_detail,
     }
-    
-    save_debug("result_to_cache",result_to_cache)
-    
-    cache.write(
-        input_data=context,
-        result=result_to_cache,
-        node_name=NODE_NAME,
-    )
-    
 
-    return result_to_cache
+    _cache4.write(input_data=cache_key, result=result, node_name=NODE_NAME)
+
+    return result

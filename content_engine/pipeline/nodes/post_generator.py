@@ -1,22 +1,23 @@
 from typing import Dict
-
 from langchain_core.messages import HumanMessage
 
 from content_engine.pipeline.state import PipelineState
 from content_engine.pipeline.utils.node_wrapper import pipeline_node
-from content_engine.backend.utils.debug_nodes import save_debug
-from content_engine.backend.llm.prompts import PROMPT_VERSION
 from content_engine.backend.llm.providers import get_llm
 from content_engine.backend.llm.prompts import generate_content_prompt
+from content_engine.backend.cache.cache_manager import get_cache
 from content_engine.backend.config.settings import get_settings
 from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 NODE_NAME = "post_generator"
 llm = get_llm()
-prompt_version=PROMPT_VERSION
-VALID_PLATFORMS = ["linkedin", "twitter", "blog"]
+cache = get_cache()
+
+VALID_PLATFORMS = {"linkedin", "twitter", "blog"}
+MAX_CONTEXT = 12000
 
 
 @pipeline_node(NODE_NAME)
@@ -24,78 +25,96 @@ def post_generator_node(state: PipelineState) -> PipelineState:
 
     context = state.get("context", "")
     if not context:
-        raise ValueError("context missing in pipeline state")
-    
+        raise ValueError("context missing — context_builder failed")
+
     narrative_angle = state.get("narrative_angle", "SYSTEM_INSIGHT")
-    
     blog_blueprint = state.get("blog_blueprint", "")
-    
-    platforms = state.get("platforms")
+    platforms = state.get("platforms", [])
+
     if not platforms:
-        raise ValueError("Platforms missing in pipeline state")
+        raise ValueError("platforms missing")
 
-    # Inject blueprint into context (for blogs)
-    if blog_blueprint:
-        context += f"\n\nBLOG BLUEPRINT:\n{blog_blueprint}"
+    style_guide = state.get("style_guide", "")
+    if not style_guide:
+        logger.warning("style_guide_empty")
 
-    if not context or len(context.strip()) < 30:
+    # --- CONTEXT TRUNCATION ---
+    if len(context) > MAX_CONTEXT:
+        logger.warning("context_truncated", length=len(context))
+        context = context[:MAX_CONTEXT] + "\n\n[...truncated...]"
+
+    # --- BLOG BLUEPRINT INJECTION ---
+    if blog_blueprint and "blog" in [p.lower() for p in platforms]:
+        context = context + f"\n\nBLOG BLUEPRINT:\n{blog_blueprint}"
+
+    if len(context.strip()) < 30:
         return {
-            "generated_posts": {p: "[No content — insufficient input]" for p in platforms},
-            "metadata": {"error": "empty_context"},
+            "generated_posts": {p: "[Insufficient context]" for p in platforms},
+            "metadata": {"error": "context_too_short"},
         }
 
     generated_posts: Dict[str, str] = {}
 
     for platform in platforms:
+        p = platform.lower()
 
-        platform_lower = platform.lower()
-
-        if platform_lower not in VALID_PLATFORMS:
+        if p not in VALID_PLATFORMS:
             generated_posts[platform] = f"[Unknown platform: {platform}]"
+            continue
+
+        # --- CACHE ---
+        cache_key = f"{p}|{context}|{narrative_angle}|{style_guide}|v2"
+
+        cached = cache.read(input_data=cache_key, node_name=NODE_NAME)
+        if cached and "content" in cached:
+            generated_posts[platform] = cached["content"]
             continue
 
         try:
             system_prompt, user_prompt = generate_content_prompt(
                 context=context,
                 angle=narrative_angle,
-                platform=platform_lower,
+                platform=p,
+                style_guide=style_guide,
             )
 
+            full_prompt = f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}"
+
             response = llm.invoke(
-                [HumanMessage(content=system_prompt + "\n\n" + user_prompt)],
+                [HumanMessage(content=full_prompt)],
                 task="generation",
             )
 
-            if response and hasattr(response, "content"):
-                generated_posts[platform] = response.content.strip()
-            else:
-                raise ValueError("Empty response from LLM")
+            if not response or not hasattr(response, "content"):
+                raise ValueError("Empty LLM response")
 
-            logger.info(
-                "platform_generated",
-                platform=platform,
-                output_chars=len(generated_posts[platform]),
+            generated = response.content.strip()
+
+            # --- VALIDATION ---
+            if len(generated) < 50:
+                raise ValueError("Output too short")
+
+            generated_posts[platform] = generated
+
+            cache.write(
+                input_data=cache_key,
+                result={"content": generated},
+                node_name=NODE_NAME,
             )
+
+            logger.info("platform_generated", platform=p, chars=len(generated))
 
         except Exception as e:
-            logger.error(
-                "platform_generation_error",
-                platform=platform,
-                error=str(e),
-            )
+            logger.error("generation_error", platform=p, error=str(e))
             generated_posts[platform] = f"[Generation failed: {str(e)}]"
 
-    settings = get_settings()
-
-    metadata = {
-        "model": settings.generation_model,
-        "platforms_generated": list(generated_posts.keys()),
-        "narrative_angle": narrative_angle,
-        "prompt_version": prompt_version,
-        "style_used": state.get("style", "dhruv_default"),
-    }
-    save_debug("generated_post",generated_posts)
     return {
         "generated_posts": generated_posts,
-        "metadata": metadata,
+        "metadata": {
+            "model": settings.generation_model,
+            "platforms_generated": list(generated_posts.keys()),
+            "narrative_angle": narrative_angle,
+            "style_used": state.get("style", "dhruv_default"),
+            "style_guide_applied": bool(style_guide),
+        },
     }

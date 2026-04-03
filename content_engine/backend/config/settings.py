@@ -170,7 +170,7 @@ class Settings(BaseSettings):
         description="Max times to regenerate if eval fails"
     )
  
-    # SECURITY (V3 Phase 5) 
+    # SECURITY 
     security_enabled: bool = Field(
         default=True,
         description="Run security_node before pipeline starts"

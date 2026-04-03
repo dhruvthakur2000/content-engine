@@ -35,7 +35,7 @@ def parse_git_node(state:PipelineState) -> PipelineState:
     """
     Extracts structured engineering knowledge from git history.
  
-    Reads:  state["raw_git_log"]  (from git_ingestion auto-detect
+s    Reads:  state["raw_git_log"]  (from git_parsar auto-detect
                                    OR manual paste)
     Writes: state["parsed_git"]   (structured extraction for context_builder)
  

@@ -90,21 +90,6 @@ SUMMARY: [3-5 sentence summary — what happened, what was learned, and what it 
 """
 
 
-# ============================================================
-# PARSE GIT PROMPT — V3 UPGRADE
-#
-# V1 problem: the prompt only asked for features/fixes from
-# commit messages. It treated git like a changelog.
-#
-# V3 upgrade: the prompt now receives RICH git data from
-# git_ingestion.py — commit hashes, file lists, diff stats,
-# auto-generated narrative. The prompt now asks for a
-# reconstruction of the developer's ACTUAL WORK today:
-# what changed, why, what sequence, what story.
-#
-# This is the key difference: V1 extracted info FROM commits.
-# V3 reconstructs UNDERSTANDING of what the developer did.
-# ============================================================
 
 PARSE_GIT_PROMPT = """
 You are a senior software engineer analyzing git commit history.
@@ -274,9 +259,6 @@ def generate_content_prompt(
     """
     Builds system + user prompts for platform content generation.
 
-    V3 FIX: style_guide is now an actual parameter.
-    V1 bug: style_selector loaded it but this function never
-    received it — creator styles had zero effect on output.
 
     Args:
         context:     Unified engineering context from context_builder
