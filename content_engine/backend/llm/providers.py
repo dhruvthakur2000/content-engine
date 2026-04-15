@@ -1,109 +1,99 @@
-from abc import ABC, abstractmethod
-from typing import Optional, Type, Dict
+# ============================================================
+# backend/llm/providers.py — FINAL
+# ============================================================
+
+from typing import Dict
 import time
 import threading
-from langchain_openai import  ChatOpenAI
+
+from langchain_openai import ChatOpenAI
+
 from content_engine.backend.config.settings import get_settings
 from content_engine.backend.utils.logger import get_logger
-
 
 settings = get_settings()
 logger = get_logger(__name__)
 
-#Model routing using a dict
 
-Task_model_map: Dict[str, str] = {
+# --------------------------------------------------------
+# TASK → MODEL MAP
+# --------------------------------------------------------
+
+TASK_MODEL_MAP: Dict[str, str] = {
     "parse": settings.parse_model,
     "reason": settings.reason_model,
     "generation": settings.generation_model,
-    "blog": settings.blog_model
+    "blog": settings.blog_model,
+    "eval": settings.eval_model,
 }
 
-#fallback chain for generation Task
 
-Fallback_model: list[str] = [
+FALLBACK_MODELS = [
     settings.fallback_model_1,
-    settings.fallback_model_2
+    settings.fallback_model_2,
 ]
 
-# LLM Client Factory
 
-def _create_client(model: str) -> ChatOpenAI:
-    """
-    Creates a LangChain ChatOpenAI client configured
-    to talk to the HuggingFace inference router.
-    """
+# --------------------------------------------------------
+# CLIENT FACTORY (cached per model)
+# --------------------------------------------------------
 
-    return ChatOpenAI(
-        model=model,
-        openai_api_key=settings.hf_token,
-        openai_api_base=settings.hf_base_url,
-        temperature=settings.llm_temperature,
-        max_tokens=settings.llm_max_tokens,
-        request_timeout=settings.llm_request_timeout,
-        default_headers={
-            "X-App-Name": settings.app_name,
-            "X-App-Version": settings.app_version,
-        },
-    )
-    
-    
-# provider management
+_client_cache: Dict[str, ChatOpenAI] = {}
+
+
+def _get_client(model: str) -> ChatOpenAI:
+    if model not in _client_cache:
+        _client_cache[model] = ChatOpenAI(
+            model=model,
+            openai_api_key=settings.hf_token,
+            openai_api_base=settings.hf_base_url,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
+            request_timeout=settings.llm_request_timeout,
+        )
+    return _client_cache[model]
+
+
+# --------------------------------------------------------
+# PROVIDER
+# --------------------------------------------------------
+
 class ProviderManager:
+
     def __init__(self):
-        self.settings=settings
-        if not self.settings.hf_token_configured:
-            raise ValueError(
-                "HF TOKEN NOT CONFIGURED"
-                "ADD HF_TOKEN to your .env file"
-            )
-            
+
+        if not settings.hf_token_configured:
+            raise ValueError("HF_TOKEN missing in .env")
+
         logger.info(
             "llm_provider_initialized",
             provider="huggingface",
-            router= self.settings.hf_base_url
+            router=settings.hf_base_url,
         )
-        
-         
-    # --------------------------------------------------------
-    # model selection
-    # --------------------------------------------------------
 
     def _model_for_task(self, task: str) -> str:
-
-        model = Task_model_map.get(task)
-
-        if model is None:
-            model = self.settings.generation_model
-
-        return model
-
-    # --------------------------------------------------------
-    # invoke model
-    # --------------------------------------------------------
+        return TASK_MODEL_MAP.get(task, settings.generation_model)
 
     def invoke(self, messages, task: str = "generation", stream: bool = False):
 
         primary_model = self._model_for_task(task)
-
-        models_to_try = [primary_model] + Fallback_model
+        models_to_try = [primary_model] + FALLBACK_MODELS
 
         for model_name in models_to_try:
 
-            client = _create_client(model_name)
+            client = _get_client(model_name)
 
-            for attempt in range(self.settings.llm_max_retries):
+            for attempt in range(settings.llm_max_retries):
 
                 try:
-
-                    start_time = time.time()
+                    start = time.time()
 
                     if stream:
                         return client.stream(messages)
 
                     response = client.invoke(messages)
 
-                    latency = round(time.time() - start_time, 3)
+                    latency = round(time.time() - start, 3)
 
                     logger.info(
                         "llm_success",
@@ -134,25 +124,20 @@ class ProviderManager:
         raise RuntimeError("All LLM models failed.")
 
 
-# ============================================================
+# --------------------------------------------------------
 # SINGLETON
-# ============================================================
+# --------------------------------------------------------
 
-_provider_manager: ProviderManager | None = None
-_provider_lock = threading.Lock()
+_provider = None
+_lock = threading.Lock()
 
 
 def get_llm() -> ProviderManager:
-    """
-    Global entry point used by the pipeline.
-    Thread-safe singleton initialization.
-    """
+    global _provider
 
-    global _provider_manager
+    if _provider is None:
+        with _lock:
+            if _provider is None:
+                _provider = ProviderManager()
 
-    if _provider_manager is None:
-        with _provider_lock:
-            if _provider_manager is None:
-                _provider_manager = ProviderManager()
-
-    return _provider_manager
+    return _provider

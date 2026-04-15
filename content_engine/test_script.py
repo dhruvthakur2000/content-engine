@@ -8,7 +8,7 @@ from content_engine.pipeline.state import PipelineState
 
 
 def run_test():
-    print("\n🚀 Running Pipeline Test...\n")
+    print("\n Running Pipeline Test...\n")
     # Debug: Print loaded Hugging Face token
     from content_engine.backend.config.settings import get_settings
     settings = get_settings()
@@ -32,35 +32,36 @@ def run_test():
     # Step 2: Run pipeline
     # ---------------------------------------------
     try:
-        final_state = get_pipeline(state)
+        from content_engine.pipeline.graph import invoke_pipeline
+        final_state = invoke_pipeline(state)
 
     except Exception as e:
-        print("❌ PIPELINE FAILED")
+        print(" PIPELINE FAILED")
         print(e)
         return
 
     # ---------------------------------------------
     # Step 3: Print outputs
     # ---------------------------------------------
-    print("\n✅ PIPELINE SUCCESS\n")
+    print("\n PIPELINE SUCCESS\n")
 
-    print("📌 Generated Posts:\n")
+    print(" Generated Posts:\n")
     posts = final_state.get("generated_posts", {})
 
     for platform, content in posts.items():
         print(f"\n--- {platform.upper()} ---\n")
         print(content[:500])  # avoid flooding terminal
 
-    print("\n📊 Metadata:\n")
+    print("\n Metadata:\n")
     print(final_state.get("metadata", {}))
 
-    print("\n🧠 Cache Hits:")
+    print("\n Cache Hits:")
     print(final_state.get("cache_hits", []))
 
-    print("\n🔁 Regeneration Count:")
+    print("\n Regeneration Count:")
     print(final_state.get("regeneration_count", 0))
 
-    print("\n⚠️ Errors:")
+    print("\n Errors:")
     print(final_state.get("errors", []))
 
 

@@ -6,8 +6,6 @@ from content_engine.backend.llm.providers import get_llm
 from content_engine.backend.llm.prompts import PARSE_GIT_PROMPT
 from content_engine.backend.cache.cache_manager import get_cache
 from content_engine.backend.utils.logger import get_logger
-from content_engine.backend.utils.debug_nodes import save_debug  
-
 logger = get_logger(__name__)
 
 NODE_NAME = "parse_git"
@@ -58,8 +56,17 @@ s    Reads:  state["raw_git_log"]  (from git_parsar auto-detect
         }
 
     # --- INPUT NORMALIZATION ---
-    raw_git_log = str(state.get("raw_git_log", "")).strip()
+    git_structured = state.get("git_structured")
+    raw_git_log = state.get("raw_git_log", "").strip()
 
+    # PRIORITY: structured > raw
+    if git_structured and git_structured.commits:
+        logger.info("parse_git_using_structured_data")
+
+        # Build richer prompt input
+        raw_git_log = git_structured.to_pipeline_string()
+    
+    
     if not raw_git_log:
         logger.info("parse_git_skipped", reason="empty_git_log")
         return {

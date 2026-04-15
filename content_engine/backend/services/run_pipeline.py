@@ -119,25 +119,13 @@ def run_pipeline_service(
     git_structured = None
 
     try:
-        if raw_git_log.strip():
-            from content_engine.backend.ingestion.git_parsar import GitLogService
-
-            cleaned_git = GitLogService().parse_git_log_string(raw_git_log)
-
-            logger.info("git_source", type="manual")
-
-        else:
-            git_result = auto_ingest_git(
-                repo_path=git_repo_path,
-                github_owner=github_owner,
-                github_repo=github_repo,
-            )
-
-            git_structured = git_result 
-
-            cleaned_git = git_result.to_pipeline_string()
-
-            logger.info("git_auto", commits=len(git_result.commits))
+        
+        git_result = auto_ingest_git(
+            repo_path=git_repo_path
+        )
+        git_structured = git_result
+        cleaned_git = git_result.to_pipeline_string()
+        logger.info("git_auto", commits=len(git_result.commits))
 
     except Exception as e:
         logger.warning("git_failed", error=str(e))

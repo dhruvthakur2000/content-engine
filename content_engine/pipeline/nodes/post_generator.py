@@ -55,6 +55,10 @@ def post_generator_node(state: PipelineState) -> PipelineState:
 
     generated_posts: Dict[str, str] = {}
 
+    import os
+    debug_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "..", "debug_output", "generated_posts")
+    os.makedirs(debug_dir, exist_ok=True)
+
     for platform in platforms:
         p = platform.lower()
 
@@ -68,6 +72,12 @@ def post_generator_node(state: PipelineState) -> PipelineState:
         cached = cache.read(input_data=cache_key, node_name=NODE_NAME)
         if cached and "content" in cached:
             generated_posts[platform] = cached["content"]
+            # Save cached content for debugging
+            try:
+                with open(os.path.join(debug_dir, f"{p}_latest.txt"), "w", encoding="utf-8") as f:
+                    f.write(cached["content"])
+            except Exception as file_exc:
+                logger.warning(f"Failed to write cached {p} output: {file_exc}")
             continue
 
         try:
@@ -95,6 +105,13 @@ def post_generator_node(state: PipelineState) -> PipelineState:
                 raise ValueError("Output too short")
 
             generated_posts[platform] = generated
+
+            # Save generated content for debugging
+            try:
+                with open(os.path.join(debug_dir, f"{p}_latest.txt"), "w", encoding="utf-8") as f:
+                    f.write(generated)
+            except Exception as file_exc:
+                logger.warning(f"Failed to write {p} output: {file_exc}")
 
             cache.write(
                 input_data=cache_key,

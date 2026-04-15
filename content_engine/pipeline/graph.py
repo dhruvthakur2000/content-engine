@@ -81,11 +81,8 @@ def build_pipeline():
     # -------------------------------
 
     graph.add_edge("input_detector", "parse_notes")
-    graph.add_edge("input_detector", "parse_git")
-    graph.add_edge("input_detector", "parse_code")
-
-    graph.add_edge("parse_notes", "context_builder")
-    graph.add_edge("parse_git", "context_builder")
+    graph.add_edge("parse_notes", "parse_git")
+    graph.add_edge("parse_git", "parse_code")
     graph.add_edge("parse_code", "context_builder")
 
     graph.add_edge("context_builder", "angle_generator")

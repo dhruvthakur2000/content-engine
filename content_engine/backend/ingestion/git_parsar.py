@@ -1,134 +1,218 @@
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import List
+# ============================================================
+# backend/ingestion/git_ingestion.py
+#
+# PRODUCTION VERSION — LOW LATENCY + STRUCTURED OUTPUT
+# ============================================================
+
+import subprocess
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from content_engine.backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class GitLogService:
+# ============================================================
+# DATA STRUCTURES
+# ============================================================
+
+@dataclass
+class GitCommit:
+    hash: str
+    message: str
+    files_changed: List[str] = field(default_factory=list)
+    additions: int = 0
+    deletions: int = 0
+
+
+@dataclass
+class GitIngestionResult:
+    repo_name: str
+    branch: str
+    commits: List[GitCommit]
+    total_additions: int
+    total_deletions: int
+    files_touched: List[str]
+    today_summary: str
+    error: Optional[str] = None
+
+    # --------------------------------------------------------
+    # Convert structured data → LLM-friendly string
+    # --------------------------------------------------------
+    def to_pipeline_string(self) -> str:
+        if self.error:
+            return f"[GIT LOG UNAVAILABLE]\nReason: {self.error}"
+
+        lines = [
+            f"Repository: {self.repo_name}",
+            f"Branch: {self.branch}",
+            f"Total changes: +{self.total_additions} -{self.total_deletions}",
+            "",
+            "=== COMMITS ===",
+        ]
+
+        for c in self.commits:
+            lines.append(f"[{c.hash[:7]}] {c.message}")
+            lines.append(f"Files: {', '.join(c.files_changed)}")
+            lines.append(f"Changes: +{c.additions} -{c.deletions}")
+            lines.append("")
+
+        lines.append("=== TODAY SUMMARY ===")
+        lines.append(self.today_summary)
+
+        return "\n".join(lines)
+
+
+# ============================================================
+# CORE INGESTION FUNCTION
+# ============================================================
+
+def auto_ingest_git(repo_path: str = ".", max_commits: int = 5) -> GitIngestionResult:
     """
-    Service responsible for reading and parsing Git commit history.
-    This class encapsulates Git interactions so the pipeline can easily
-    obtain commit summaries for content generation.
+    Extract today's git activity (commits + file changes + stats)
+
+    This function NEVER crashes — always returns structured result.
     """
 
-    MAX_CHARS = 3000
+    try:
+        repo_name = _run_git_command(["rev-parse", "--show-toplevel"], repo_path).split("/")[-1]
+        branch = _run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], repo_path)
 
-    def __init__(self, repo_path: str = "."):
-        """
-        Initialize the service.
-
-        Args:
-            repo_path: Path to the git repository.
-        """
-        self.repo_path = Path(repo_path).resolve()
-
-    def get_git_log(self, days_back: int = 1, max_commits: int = 20) -> str:
-        """
-        Reads recent git commits and returns formatted text.
-
-        Args:
-            days_back: Number of days of history to include.
-            max_commits: Maximum commits to return.
-
-        Returns:
-            Formatted commit string.
-        """
-
-        try:
-            import git
-        except ImportError:
-            logger.warning("GitPython_not_installed")
-            return self._fallback_message(
-                "GitPython not installed. Run: uv pip install GitPython"
-            )
-
-        if not self.repo_path.exists():
-            logger.warning("git_repo_path_not_found", path=str(self.repo_path))
-            return self._fallback_message(
-                f"Path not found: {self.repo_path}"
-            )
-
-        try:
-            repo = git.Repo(str(self.repo_path), search_parent_directories=True)
-        except git.exc.InvalidGitRepositoryError:
-            logger.warning("not_a_git_repo", path=str(self.repo_path))
-            return self._fallback_message(
-                f"Directory is not a git repository: {self.repo_path}\n"
-                "Initialize with: git init && git add . && git commit -m 'initial commit'"
-            )
-        except git.exc.NoSuchPathError:
-            return self._fallback_message(f"Git path error: {self.repo_path}")
-
-        cutoff_dt = datetime.now(tz=timezone.utc) - timedelta(days=days_back)
-
-        commits: List[str] = []
-
-        try:
-            for commit in repo.iter_commits("HEAD", max_count=max_commits):
-
-                if commit.committed_datetime < cutoff_dt:
-                    break
-
-                formatted_time = commit.committed_datetime.strftime("%Y-%m-%d %H:%M")
-
-                commit_line = f"{commit.message.strip()} ({formatted_time})"
-
-                commits.append(commit_line)
-
-        except Exception as e:
-            logger.error("git_log_read_error", error=str(e))
-            return self._fallback_message(f"Error reading git log: {e}")
-
-        if not commits:
-            logger.info(
-                "no_commits_found",
-                days_back=days_back,
-                repo=str(self.repo_path),
-            )
-            return self._fallback_message(
-                f"No commits found in the last {days_back} day(s).\n"
-                "Make some commits and try again."
-            )
-
-        git_log_text = "\n".join(commits)
-
-        logger.info(
-            "git_log_read",
-            commit_count=len(commits),
-            days_back=days_back,
-            repo=str(self.repo_path),
+        raw_log = _run_git_command(
+            ["log", "--since=midnight", "--pretty=format:%H||%s", f"-{max_commits}"],
+            repo_path,
         )
 
-        return git_log_text
-    
-    def parse_git_log_string(self, raw_git_log: str) -> str:
-        """
-        Cleans a manually provided git log string.
+        if not raw_log.strip():
+            return _empty_result(repo_name, branch, reason="No commits today")
 
-        Args:
-            raw_git_log: Raw git log text.
+        commits = []
+        total_add = 0
+        total_del = 0
+        all_files = set()
 
-        Returns:
-            Cleaned git log string.
-        """
+        for line in raw_log.split("\n"):
+            if "||" not in line:
+                continue
 
-        if not raw_git_log or not raw_git_log.strip():
-            return self._fallback_message("No git log provided.")
+            commit_hash, message = line.split("||", 1)
 
-        cleaned = raw_git_log.strip()
+            stats = _get_commit_stats(commit_hash, repo_path)
 
-        if len(cleaned) > self.MAX_CHARS:
-            cleaned = cleaned[: self.MAX_CHARS] + "\n[...git log truncated...]"
-            logger.warning("git_log_truncated")
+            commits.append(
+                GitCommit(
+                    hash=commit_hash,
+                    message=message,
+                    files_changed=stats["files"],
+                    additions=stats["additions"],
+                    deletions=stats["deletions"],
+                )
+            )
 
-        return cleaned
+            total_add += stats["additions"]
+            total_del += stats["deletions"]
+            all_files.update(stats["files"])
 
-    def _fallback_message(self, reason: str) -> str:
-        """
-        Returns fallback message when git log can't be read.
-        """
+        summary = _build_summary(commits)
 
-        return f"[GIT LOG UNAVAILABLE: {reason}]"
+        return GitIngestionResult(
+            repo_name=repo_name,
+            branch=branch,
+            commits=commits,
+            total_additions=total_add,
+            total_deletions=total_del,
+            files_touched=list(all_files),
+            today_summary=summary,
+        )
+
+    except Exception as e:
+        logger.error("git_ingestion_failed", error=str(e))
+
+        return GitIngestionResult(
+            repo_name="unknown",
+            branch="unknown",
+            commits=[],
+            total_additions=0,
+            total_deletions=0,
+            files_touched=[],
+            today_summary="Git ingestion failed.",
+            error=str(e),
+        )
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def _run_git_command(cmd: List[str], repo_path: str) -> str:
+    """Run git command safely"""
+    result = subprocess.run(
+        ["git"] + cmd,
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        timeout=5,   # prevent hanging
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
+
+    return result.stdout.strip()
+
+
+def _get_commit_stats(commit_hash: str, repo_path: str) -> dict:
+    """Extract file changes + line stats for a commit"""
+    try:
+        output = _run_git_command(
+            ["show", "--stat", "--oneline", commit_hash],
+            repo_path,
+        )
+
+        files = []
+        additions = 0
+        deletions = 0
+
+        for line in output.split("\n"):
+            if "|" in line:
+                file_name = line.split("|")[0].strip()
+                files.append(file_name)
+
+            if "+" in line or "-" in line:
+                additions += line.count("+")
+                deletions += line.count("-")
+
+        return {
+            "files": files[:5],  # limit for prompt size
+            "additions": additions,
+            "deletions": deletions,
+        }
+
+    except Exception:
+        return {"files": [], "additions": 0, "deletions": 0}
+
+
+def _build_summary(commits: List[GitCommit]) -> str:
+    """Generate simple deterministic summary (no LLM)"""
+
+    if not commits:
+        return "No commits detected."
+
+    return (
+        f"{len(commits)} commits made today. "
+        f"Worked across {len(set(f for c in commits for f in c.files_changed))} files."
+    )
+
+
+def _empty_result(repo: str, branch: str, reason: str) -> GitIngestionResult:
+    """Return safe empty result"""
+    return GitIngestionResult(
+        repo_name=repo,
+        branch=branch,
+        commits=[],
+        total_additions=0,
+        total_deletions=0,
+        files_touched=[],
+        today_summary=reason,
+        error=reason,
+    )
